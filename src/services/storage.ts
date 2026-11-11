@@ -17,13 +17,13 @@ import {
 import { classifyEmail } from './classifier';
 
 const STORAGE_KEYS = {
-  REQUESTS: 'fieldnote_requests_v1',
-  MESSAGES: 'fieldnote_messages_v1',
-  STATUS_HISTORY: 'fieldnote_status_history_v1',
-  ATTENDEES: 'fieldnote_attendees_v1',
-  USERS: 'fieldnote_users_v1',
-  AUDIT_LOG: 'fieldnote_audit_log_v1',
-  ACTIVE_USER: 'fieldnote_active_user_v1',
+  REQUESTS: 'fieldnote_requests_v3',
+  MESSAGES: 'fieldnote_messages_v3',
+  STATUS_HISTORY: 'fieldnote_status_history_v3',
+  ATTENDEES: 'fieldnote_attendees_v3',
+  USERS: 'fieldnote_users_v3',
+  AUDIT_LOG: 'fieldnote_audit_log_v3',
+  ACTIVE_USER: 'fieldnote_active_user_v3',
 };
 
 const DEFAULT_USERS: User[] = [
@@ -86,6 +86,15 @@ export class OpsStorage {
   }
 
   static init(): void {
+    // Purge legacy mock data
+    [
+      'fieldnote_requests_v1',
+      'fieldnote_messages_v1',
+      'fieldnote_status_history_v1',
+      'fieldnote_attendees_v1',
+      'fieldnote_audit_log_v1',
+    ].forEach((k) => localStorage.removeItem(k));
+
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
       this.write(STORAGE_KEYS.USERS, DEFAULT_USERS);
     }
@@ -93,8 +102,28 @@ export class OpsStorage {
       this.write(STORAGE_KEYS.ACTIVE_USER, DEFAULT_USERS[0]);
     }
     if (!localStorage.getItem(STORAGE_KEYS.REQUESTS)) {
-      this.seedInitialData();
+      this.write(STORAGE_KEYS.REQUESTS, []);
     }
+    if (!localStorage.getItem(STORAGE_KEYS.MESSAGES)) {
+      this.write(STORAGE_KEYS.MESSAGES, []);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.STATUS_HISTORY)) {
+      this.write(STORAGE_KEYS.STATUS_HISTORY, []);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.ATTENDEES)) {
+      this.write(STORAGE_KEYS.ATTENDEES, []);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOG)) {
+      this.write(STORAGE_KEYS.AUDIT_LOG, []);
+    }
+  }
+
+  static clearAllData(): void {
+    this.write(STORAGE_KEYS.REQUESTS, []);
+    this.write(STORAGE_KEYS.MESSAGES, []);
+    this.write(STORAGE_KEYS.STATUS_HISTORY, []);
+    this.write(STORAGE_KEYS.ATTENDEES, []);
+    this.write(STORAGE_KEYS.AUDIT_LOG, []);
   }
 
   static getActiveUser(): User {

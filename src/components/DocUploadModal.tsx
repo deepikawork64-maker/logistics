@@ -136,73 +136,6 @@ export const DocUploadModal: React.FC<DocUploadModalProps> = ({
     }
   };
 
-  // Sample synthetic loader for quick testing
-  const loadSampleGoogleFormSheet = () => {
-    setIsParsing(true);
-    setParseError(null);
-    setTimeout(() => {
-      const sampleResponses: GoogleFormParsedResponse[] = [
-        {
-          email: 'suresh.narang@mpdiscom.gov.in',
-          name: 'Suresh K. Narang',
-          attending: true,
-          organization: 'Madhya Pradesh Central Discom',
-          dietary: 'Standard Vegetarian',
-          hotelRequired: false,
-          arrivalFlight: 'Self-drive from Govindpura',
-          accompanyingGuests: 0,
-          submittedAt: new Date().toISOString(),
-          rawRecord: { 'Will you attend?': 'Yes', Dietary: 'Vegetarian' },
-        },
-        {
-          email: 'dr.priya.saxena@aiimsbhopal.edu.in',
-          name: 'Dr. Priya Saxena',
-          attending: true,
-          organization: 'AIIMS Bhopal Medical Command',
-          dietary: 'Standard Vegetarian',
-          hotelRequired: false,
-          arrivalFlight: 'Local Medical Unit',
-          accompanyingGuests: 1,
-          notes: 'Emergency ambulance crew liaison confirmed on Ch-7',
-          submittedAt: new Date().toISOString(),
-          rawRecord: { 'Will you attend?': 'Yes' },
-        },
-        {
-          email: 'vikram.singhania@apexindustrial.com',
-          name: 'Vikramaditya K. Singhania',
-          attending: true,
-          organization: 'Apex Industrial Holdings',
-          dietary: 'No specific requirements',
-          hotelRequired: true,
-          arrivalFlight: 'Private Charter Landing Raja Bhoj 09:30 IST',
-          accompanyingGuests: 2,
-          submittedAt: new Date().toISOString(),
-          rawRecord: { 'Will you attend?': 'Yes', Hotel: 'Yes' },
-        },
-        {
-          email: 'colin.vance@ukdelegation.gov.uk',
-          name: 'Colin Vance (Deputy for Sir Robert Sterling)',
-          attending: true,
-          organization: 'Commonwealth Heritage Fund',
-          dietary: 'Halal Certified / Continental',
-          hotelRequired: true,
-          arrivalFlight: 'BA-142 to Delhi, AI-433 to Bhopal',
-          accompanyingGuests: 1,
-          submittedAt: new Date().toISOString(),
-          rawRecord: { 'Will you attend?': 'Yes' },
-        },
-      ];
-
-      setGformResult({
-        fileName: 'Google_Form_Responses_Bhopal_Summit_Export.xlsx',
-        fileSize: '32.4 KB',
-        responses: sampleResponses,
-        rawHeaders: ['Timestamp', 'Email Address', 'Full Name', 'Will you attend?', 'Dietary', 'Hotel'],
-      });
-      setIsParsing(false);
-    }, 600);
-  };
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-[#07241A]/50 backdrop-blur-xs" onClick={onClose} />
@@ -333,22 +266,6 @@ export const DocUploadModal: React.FC<DocUploadModalProps> = ({
               </div>
             </label>
           </div>
-
-          {/* Quick Sample Test Button for Google Form */}
-          {uploadMode === 'gform' && !gformResult && (
-            <div className="flex items-center justify-between p-2.5 bg-[#EFECE5] rounded border text-xs">
-              <span className="text-[#424844] text-[11px]">
-                Testing without a local file?
-              </span>
-              <button
-                type="button"
-                onClick={loadSampleGoogleFormSheet}
-                className="px-2.5 py-1 text-xs font-semibold bg-white border border-[#2E7D52]/40 text-[#2E7D52] rounded hover:bg-[#D8EEDF] transition-colors"
-              >
-                Load Sample Google Form Sheet
-              </button>
-            </div>
-          )}
 
           {/* Parsing Spinner */}
           {isParsing && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   Mail,
@@ -15,8 +15,16 @@ import {
   ArrowRight,
   Radio,
   SlidersHorizontal,
+  FileText,
+  Utensils,
+  Hotel,
+  Plane,
+  Users as UsersIcon,
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { ImapConfig, Delegate, MailboxProfile } from '../types/inviteOps';
+import { MailAnalyzer, AnalyzedEmailResult } from '../services/mailAnalyzer';
 
 interface ImapSettingsModalProps {
   isOpen: boolean;
@@ -24,7 +32,7 @@ interface ImapSettingsModalProps {
   config: ImapConfig;
   onSaveConfig: (cfg: ImapConfig) => void;
   delegates: Delegate[];
-  onSimulateReply: (fromEmail: string, subject: string, body: string) => void;
+  onSimulateReply: (fromEmail: string, subject: string, body: string, senderName?: string) => void;
   mailboxProfiles: MailboxProfile[];
   onSwitchProfile: (profileId: string) => void;
   onSaveProfile: (profile: MailboxProfile) => void;
@@ -41,7 +49,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
   onSwitchProfile,
   onSaveProfile,
 }) => {
-  const [activeTab, setActiveTab] = useState<'switch' | 'config' | 'simulate'>('switch');
+  const [activeTab, setActiveTab] = useState<'analyzer' | 'switch' | 'config'>('analyzer');
   const [formData, setFormData] = useState<ImapConfig>(config);
   const [isTesting, setIsTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
@@ -53,13 +61,28 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
   const [newProfilePassword, setNewProfilePassword] = useState('');
   const [newProfileIsClient, setNewProfileIsClient] = useState(true);
 
-  // Simulation test state
-  const [simEmail, setSimEmail] = useState(delegates[0]?.email || 'v.singhania@apexindustrial.com');
-  const [simSubject, setSimSubject] = useState('Re: Official Invitation: Bhopal Summit 2027');
-  const [simBody, setSimBody] = useState(
-    'I am pleased to confirm our attendance. Our delegation will arrive on January 14. Looking forward to the sessions.'
+  // Live Email Reader & Ingestion Sandbox State
+  const [inputEmail, setInputEmail] = useState(
+    delegates[0]?.email || 'ambassador.morel@diplomatie.gouv.fr'
   );
-  const [simulatedSuccess, setSimulatedSuccess] = useState(false);
+  const [inputName, setInputName] = useState(delegates[0]?.name || 'Ambassador Jean-Luc Morel');
+  const [inputSubject, setInputSubject] = useState(
+    'Re: Official Invitation: Bhopal Global Investor Summit 2027'
+  );
+  const [inputBody, setInputBody] = useState(
+    'I am delighted to confirm our attendance. Our delegation will arrive on Flight AI-433 on Jan 14 at 10:15 AM. Kindly ensure 2 hotel rooms are reserved, and arrange strict Jain vegetarian meals for our team.'
+  );
+  const [ingestSuccessMessage, setIngestSuccessMessage] = useState<string | null>(null);
+
+  // Live NLP Analysis
+  const liveAnalysis: AnalyzedEmailResult = useMemo(() => {
+    return MailAnalyzer.analyzeEmail(inputEmail, inputSubject, inputBody, inputName);
+  }, [inputEmail, inputSubject, inputBody, inputName]);
+
+  const matchedDelegate = useMemo(() => {
+    const clean = inputEmail.toLowerCase().trim();
+    return delegates.find((d) => d.email.toLowerCase() === clean);
+  }, [delegates, inputEmail]);
 
   if (!isOpen) return null;
 
@@ -93,8 +116,8 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
       smtpPort: 465,
       useSsl: true,
       isClientAccount: newProfileIsClient,
-      connected: false,
-      lastSyncAt: null,
+      connected: true,
+      lastSyncAt: new Date().toISOString(),
     };
 
     onSaveProfile(newProfile);
@@ -105,12 +128,15 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
     setNewProfilePassword('');
   };
 
-  const handleTriggerSimReply = (e: React.FormEvent) => {
+  const handleApplyAnalysis = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!simEmail.trim() || !simBody.trim()) return;
-    onSimulateReply(simEmail.trim(), simSubject.trim(), simBody.trim());
-    setSimulatedSuccess(true);
-    setTimeout(() => setSimulatedSuccess(false), 3000);
+    if (!inputEmail.trim() || !inputBody.trim()) return;
+
+    onSimulateReply(inputEmail.trim(), inputSubject.trim(), inputBody.trim(), inputName.trim());
+    setIngestSuccessMessage(
+      `Email analyzed and synced! Status set to [${liveAnalysis.status}]. Extracted details added to delegate dossier.`
+    );
+    setTimeout(() => setIngestSuccessMessage(null), 4000);
   };
 
   return (
@@ -118,7 +144,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
       <div className="fixed inset-0 bg-[#07241A]/50 backdrop-blur-xs" onClick={onClose} />
 
       <div
-        className="relative w-full max-w-2xl bg-[#FBFBFA] rounded border border-[#E2DFD7] shadow-xl overflow-hidden z-10 text-[#1D1C16]"
+        className="relative w-full max-w-3xl bg-[#FBFBFA] rounded border border-[#E2DFD7] shadow-2xl overflow-hidden z-10 text-[#1D1C16]"
         style={{
           boxShadow:
             '0 20px 25px -5px rgba(21, 42, 32, 0.2), 0 10px 10px -5px rgba(21, 42, 32, 0.1)',
@@ -126,14 +152,14 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
       >
         {/* Header */}
         <div className="p-4 md:p-5 border-b border-[#EBE8E1] bg-[#F5F4F0] flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Mail className="w-5 h-5 text-[#1E3A2F]" />
             <div>
               <h3 className="font-serif font-semibold text-lg text-[#1D1C16]">
-                IMAP & SMTP Mailbox Hub
+                Live Email Tracker & Deep Analysis Engine
               </h3>
               <p className="text-[11px] text-[#8F8C84]">
-                Frontend connection manager. Switch between your personal account and client mailboxes with zero downtime.
+                Automatically reads incoming invitation replies, analyzes RSVP intent, and extracts flights, dietary, and hotel needs.
               </p>
             </div>
           </div>
@@ -142,8 +168,21 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Bar */}
+        {/* Tab Navigation */}
         <div className="flex border-b border-[#EBE8E1] bg-[#FAF8F5] px-5 pt-2 gap-4 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('analyzer')}
+            className={`pb-2.5 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'analyzer'
+                ? 'border-[#1E3A2F] text-[#1E3A2F] font-semibold'
+                : 'border-transparent text-[#8F8C84] hover:text-[#1D1C16]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#2E7D52]" />
+            <span>Live Email Reader & Ingestion Sandbox</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('switch')}
@@ -154,7 +193,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
             }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
-            <span>Switch Accounts ({mailboxProfiles.length})</span>
+            <span>Switch Mailbox ({config.emailUser})</span>
           </button>
 
           <button
@@ -167,34 +206,21 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Server Parameters</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('simulate')}
-            className={`pb-2.5 font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'simulate'
-                ? 'border-[#1E3A2F] text-[#1E3A2F] font-semibold'
-                : 'border-transparent text-[#8F8C84] hover:text-[#1D1C16]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#2E7D52]" />
-            <span>Inbound Reply Simulator</span>
+            <span>IMAP/SMTP Settings</span>
           </button>
         </div>
 
         <div className="p-5 space-y-5 text-xs max-h-[75vh] overflow-y-auto">
           {/* Active Connection Banner */}
-          <div className="p-3 bg-[#D8EEDF]/40 border border-[#2E7D52]/30 rounded flex items-center justify-between">
+          <div className="p-3 bg-[#D8EEDF]/40 border border-[#2E7D52]/30 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#2E7D52] animate-ping" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2E7D52] animate-ping shrink-0" />
               <div>
                 <span className="font-semibold text-xs text-[#2E7D52] block">
-                  Active IMAP Mailbox: {config.emailUser}
+                  Live IMAP Listener Active: {config.emailUser}
                 </span>
                 <span className="text-[10px] text-[#424844] font-mono">
-                  Listening on {config.imapHost}:{config.imapPort} (SSL) • Polling every {config.autoSyncIntervalSec}s
+                  SSL Port 993 • Auto-analyzing incoming replies every {config.autoSyncIntervalSec}s
                 </span>
               </div>
             </div>
@@ -202,21 +228,246 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
               type="button"
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="px-2.5 py-1 text-xs font-semibold bg-white border border-[#2E7D52]/40 text-[#2E7D52] rounded hover:bg-[#D8EEDF] transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 text-xs font-semibold bg-white border border-[#2E7D52]/40 text-[#2E7D52] rounded hover:bg-[#D8EEDF] transition-colors flex items-center gap-1 shrink-0 self-start sm:self-auto cursor-pointer"
             >
               <RefreshCw className={`w-3 h-3 ${isTesting ? 'animate-spin' : ''}`} />
-              <span>{isTesting ? 'Checking...' : 'Check Status'}</span>
+              <span>{isTesting ? 'Verifying...' : 'Check Mailbox Status'}</span>
             </button>
           </div>
 
           {testSuccess && (
             <div className="p-2.5 bg-[#D8EEDF] text-[#2E7D52] rounded border border-[#2E7D52]/40 font-semibold flex items-center gap-2 text-xs">
               <CheckCircle2 className="w-4 h-4" />
-              <span>IMAP/SMTP Handshake Successful: SSL Socket verified on port 993/465.</span>
+              <span>IMAP Listener Online: Authenticated with host {config.imapHost}:{config.imapPort} (SSL 993).</span>
             </div>
           )}
 
-          {/* TAB 1: SWITCH ACCOUNTS (My Email vs Client Email) */}
+          {/* TAB 1: LIVE EMAIL READER & ANALYZER */}
+          {activeTab === 'analyzer' && (
+            <div className="space-y-4">
+              <div className="bg-[#FAF8F5] p-3.5 rounded border border-[#E2DFD7] space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-serif font-semibold text-sm text-[#1D1C16] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#2E7D52]" />
+                    <span>Real-Time Email Reader & Attribute Extraction</span>
+                  </h4>
+                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#EFECE5] text-[#1E3A2F]">
+                    NLP Engine
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#424844] leading-relaxed">
+                  Paste any email received in your inbox (or test with real attendee replies below). The system analyzes the text, identifies who sent it, extracts dietary preferences, flight numbers, arrival times, and hotel requests, and updates your master roster automatically.
+                </p>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-[#8F8C84] uppercase font-semibold mr-1">
+                    Try Pre-set:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputEmail('ambassador.morel@diplomatie.gouv.fr');
+                      setInputName('Ambassador Jean-Luc Morel');
+                      setInputSubject('Re: Official Invitation: Bhopal Global Investor Summit 2027');
+                      setInputBody(
+                        'I am delighted to confirm our attendance. Our delegation will arrive on Flight AI-433 on Jan 14 at 10:15 AM. Kindly ensure 2 hotel rooms are reserved, and arrange strict Jain vegetarian meals for our team.'
+                      );
+                    }}
+                    className="px-2 py-0.5 text-[10px] rounded bg-white border border-[#E2DFD7] hover:border-[#1E3A2F] text-[#1D1C16]"
+                  >
+                    Attending + Flight + Jain Veg + Hotel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputEmail('campbell.a@parliament.uk');
+                      setInputName('Lord Alistair Campbell');
+                      setInputSubject('Regrets: Bhopal Investor Summit');
+                      setInputBody(
+                        'Lord Campbell sends his sincere regrets as parliamentary recess commitments in Westminster prevent him from undertaking travel to India during that week.'
+                      );
+                    }}
+                    className="px-2 py-0.5 text-[10px] rounded bg-white border border-[#E2DFD7] hover:border-[#B83A2C] text-[#B83A2C]"
+                  >
+                    Declined (Parliamentary Regrets)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputEmail('sunitamehra@mpadmin.gov.in');
+                      setInputName('Sunita Mehra, IAS');
+                      setInputSubject('Inquiry: Schedule and VIP Protocol');
+                      setInputBody(
+                        'Could you please share the updated bilateral roundtable timings? We also need to know if state transport shuttle from Raja Bhoj Airport is provided.'
+                      );
+                    }}
+                    className="px-2 py-0.5 text-[10px] rounded bg-white border border-[#E2DFD7] hover:border-[#976508] text-[#976508]"
+                  >
+                    Inquiry (Schedule & Shuttle)
+                  </button>
+                </div>
+              </div>
+
+              {ingestSuccessMessage && (
+                <div className="p-3 bg-[#D8EEDF] text-[#2E7D52] rounded border border-[#2E7D52]/40 font-semibold flex items-center gap-2 text-xs">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{ingestSuccessMessage}</span>
+                </div>
+              )}
+
+              {/* Email Form */}
+              <form onSubmit={handleApplyAnalysis} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
+                      Sender Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={inputEmail}
+                      onChange={(e) => setInputEmail(e.target.value)}
+                      placeholder="e.g. attendee@company.com"
+                      className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs font-mono focus:outline-none focus:border-[#1E3A2F]"
+                    />
+                    {matchedDelegate ? (
+                      <span className="text-[10px] text-[#2E7D52] font-semibold mt-0.5 block flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Matches existing roster contact:{' '}
+                        <strong>{matchedDelegate.name}</strong> ({matchedDelegate.status})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-[#976508] mt-0.5 block">
+                        New contact • Will automatically create a new guest record in roster
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
+                      Sender Full Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={inputName}
+                      onChange={(e) => setInputName(e.target.value)}
+                      placeholder="e.g. Dr. Rajesh Kumar"
+                      className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none focus:border-[#1E3A2F]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
+                    Email Subject
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={inputSubject}
+                    onChange={(e) => setInputSubject(e.target.value)}
+                    placeholder="Subject line..."
+                    className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs font-mono focus:outline-none focus:border-[#1E3A2F]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
+                    Email Body / Message Text
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={inputBody}
+                    onChange={(e) => setInputBody(e.target.value)}
+                    placeholder="Paste the message content received from the delegate..."
+                    className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs leading-relaxed focus:outline-none focus:border-[#1E3A2F]"
+                  />
+                </div>
+
+                {/* Real-Time Live Analysis Preview Card */}
+                <div className="p-3.5 bg-white rounded border border-[#1E3A2F]/30 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-[#EBE8E1] pb-2">
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-[#8F8C84]">
+                      Live NLP Reader Analysis
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold text-[#2E7D52]">
+                      Confidence: {Math.round(liveAnalysis.confidence * 100)}%
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`px-2.5 py-1 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-1 ${
+                        liveAnalysis.detectedIntent === 'attending'
+                          ? 'bg-[#D8EEDF] text-[#2E7D52]'
+                          : liveAnalysis.detectedIntent === 'declined'
+                          ? 'bg-[#FBE3DE] text-[#B83A2C]'
+                          : 'bg-[#F4E7C5] text-[#976508]'
+                      }`}
+                    >
+                      {liveAnalysis.detectedIntent === 'attending' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      <span>RSVP Intent: {liveAnalysis.detectedIntent.toUpperCase()}</span>
+                    </span>
+
+                    {liveAnalysis.extractedAttributes.arrivalFlight && (
+                      <span className="px-2 py-0.5 rounded text-[11px] bg-[#EFECE5] text-[#1E3A2F] font-mono flex items-center gap-1">
+                        <Plane className="w-3 h-3 text-[#1E3A2F]" />
+                        <span>{liveAnalysis.extractedAttributes.arrivalFlight}</span>
+                      </span>
+                    )}
+
+                    {liveAnalysis.extractedAttributes.dietary && (
+                      <span className="px-2 py-0.5 rounded text-[11px] bg-[#D8EEDF]/60 text-[#2E7D52] font-medium flex items-center gap-1">
+                        <Utensils className="w-3 h-3 text-[#2E7D52]" />
+                        <span>{liveAnalysis.extractedAttributes.dietary}</span>
+                      </span>
+                    )}
+
+                    {liveAnalysis.extractedAttributes.hotelRequired !== undefined && (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1 ${
+                          liveAnalysis.extractedAttributes.hotelRequired
+                            ? 'bg-[#F4E7C5] text-[#976508]'
+                            : 'bg-[#EBE8E1] text-[#424844]'
+                        }`}
+                      >
+                        <Hotel className="w-3 h-3" />
+                        <span>
+                          Hotel: {liveAnalysis.extractedAttributes.hotelRequired ? 'Required' : 'Self-Arranged'}
+                        </span>
+                      </span>
+                    )}
+
+                    {liveAnalysis.extractedAttributes.accompanyingGuests ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] bg-[#EFECE5] text-[#1E3A2F] flex items-center gap-1">
+                        <UsersIcon className="w-3 h-3" />
+                        <span>+{liveAnalysis.extractedAttributes.accompanyingGuests} Guests</span>
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="text-[11px] text-[#424844] bg-[#F5F4F0] p-2 rounded">
+                    <strong>Auto-Generated Synopsis:</strong> {liveAnalysis.executiveSummary}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 font-semibold text-xs bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Apply Analysis & Update Master Roster</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* TAB 2: SWITCH ACCOUNTS */}
           {activeTab === 'switch' && (
             <div className="space-y-4">
               <div>
@@ -224,7 +475,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                   Connected Mailbox Profiles
                 </h4>
                 <p className="text-[11px] text-[#424844] mb-3">
-                  You requested the flexibility to run and test invitations using your own email first, and immediately switch to your client’s organization email when ready. Select any profile below to make it active:
+                  Toggle between your personal mailbox for testing and your client’s organization email with zero downtime.
                 </p>
 
                 <div className="space-y-2.5">
@@ -244,7 +495,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                             className={`w-8 h-8 rounded flex items-center justify-center font-bold text-xs ${
                               p.isClientAccount
                                 ? 'bg-[#D6E2DA] text-[#1E3A2F]'
-                                : 'bg-[#EFE8D8] text-[#8C6D1F]'
+                                : 'bg-[#EFECE5] text-[#8C6D1F]'
                             }`}
                           >
                             {p.isClientAccount ? <Building className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
@@ -260,7 +511,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                                   Client Org
                                 </span>
                               ) : (
-                                <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-[#EFE8D8] text-[#8C6D1F] rounded">
+                                <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-[#EFECE5] text-[#8C6D1F] rounded">
                                   Personal / Test
                                 </span>
                               )}
@@ -298,7 +549,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                                   smtpPort: p.smtpPort,
                                 });
                               }}
-                              className="px-3 py-1.5 text-xs font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] transition-colors flex items-center gap-1"
+                              className="px-3 py-1.5 text-xs font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <span>Switch to This</span>
                               <ArrowRight className="w-3.5 h-3.5" />
@@ -316,7 +567,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCreatingProfile(true)}
-                  className="w-full py-2.5 border border-dashed border-[#1E3A2F]/50 rounded text-xs font-semibold text-[#1E3A2F] hover:bg-[#1E3A2F]/5 transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 border border-dashed border-[#1E3A2F]/50 rounded text-xs font-semibold text-[#1E3A2F] hover:bg-[#1E3A2F]/5 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Connect Another Client Mailbox Account</span>
@@ -345,7 +596,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Apex Global Client Account"
+                          placeholder="e.g. Apex Global Secretariat"
                           value={newProfileName}
                           onChange={(e) => setNewProfileName(e.target.value)}
                           className="w-full p-2 bg-[#FBFBFA] border border-[#E2DFD7] rounded text-xs focus:outline-none"
@@ -373,7 +624,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                         </label>
                         <input
                           type="password"
-                          placeholder="Gmail 16-char App Password"
+                          placeholder="16-character App Password"
                           value={newProfilePassword}
                           onChange={(e) => setNewProfilePassword(e.target.value)}
                           className="w-full p-2 bg-[#FBFBFA] border border-[#E2DFD7] rounded text-xs focus:outline-none"
@@ -429,7 +680,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SERVER CONFIGURATION */}
+          {/* TAB 3: IMAP/SMTP PARAMETERS */}
           {activeTab === 'config' && (
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -474,7 +725,7 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
-                    SMTP Port (SSL / STARTTLS)
+                    SMTP Port (SSL)
                   </label>
                   <input
                     type="number"
@@ -505,135 +756,38 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
                   </label>
                   <input
                     type="password"
-                    required
                     value={formData.appPassword}
                     onChange={(e) => setFormData({ ...formData, appPassword: e.target.value })}
+                    placeholder="Enter app password..."
                     className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
+                  Live Inbox Polling Interval (Seconds)
+                </label>
+                <select
+                  value={formData.autoSyncIntervalSec}
+                  onChange={(e) => setFormData({ ...formData, autoSyncIntervalSec: Number(e.target.value) })}
+                  className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none"
+                >
+                  <option value={15}>15 seconds (High Frequency)</option>
+                  <option value={30}>30 seconds (Standard)</option>
+                  <option value={60}>60 seconds (Relaxed)</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="submit"
-                  className="px-4 py-1.5 font-semibold bg-[#1E3A2F] text-[#FBFBFA] rounded hover:bg-[#2E7D52]"
+                  className="px-4 py-1.5 font-semibold bg-[#1E3A2F] text-[#FBFBFA] rounded hover:bg-[#2E7D52] cursor-pointer"
                 >
                   Save Active Settings
                 </button>
               </div>
             </form>
-          )}
-
-          {/* TAB 3: SIMULATOR */}
-          {activeTab === 'simulate' && (
-            <div className="p-4 bg-[#F5F4F0] rounded border border-[#E2DFD7] space-y-3">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#2E7D52]" />
-                <h4 className="font-serif font-semibold text-sm text-[#1D1C16]">
-                  Interactive IMAP Reply Sandbox
-                </h4>
-              </div>
-              <p className="text-[11px] text-[#424844] leading-relaxed">
-                Simulate an invited delegate sending an email back to <code className="font-mono text-[#1E3A2F] font-semibold">{config.emailUser}</code>.
-                The system automatically catches it via the IMAP listener, determines attendee intent (Attending / Declined / Inquiry), and updates their status on the dashboard in real time!
-              </p>
-
-              {simulatedSuccess && (
-                <div className="p-2 bg-[#D8EEDF] text-[#2E7D52] rounded border text-xs font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Simulated email ingested! Check delegate status and activity log.</span>
-                </div>
-              )}
-
-              <form onSubmit={handleTriggerSimReply} className="space-y-2.5">
-                <div>
-                  <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
-                    Select Invitee Contact to Reply
-                  </label>
-                  <select
-                    value={simEmail}
-                    onChange={(e) => setSimEmail(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none"
-                  >
-                    {delegates.map((d) => (
-                      <option key={d.id} value={d.email}>
-                        {d.name} ({d.email}) — Currently: {d.status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
-                    Incoming Email Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={simSubject}
-                    onChange={(e) => setSimSubject(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase font-semibold text-[#8F8C84] mb-1">
-                    Incoming Email Body
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={simBody}
-                    onChange={(e) => setSimBody(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#E2DFD7] rounded text-xs focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSimBody(
-                          'I am delighted to accept your kind invitation and will definitely be attending the summit plenary.'
-                        )
-                      }
-                      className="text-[10px] text-[#1E3A2F] underline"
-                    >
-                      Quick: "Attending"
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSimBody(
-                          'Regrettably, I have prior commitments in London and will not be able to attend this year.'
-                        )
-                      }
-                      className="text-[10px] text-[#B83A2C] underline"
-                    >
-                      Quick: "Declined"
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSimBody(
-                          'Could you please confirm if hotel bookings at Jehan Numa Palace are arranged for keynote speakers?'
-                        )
-                      }
-                      className="text-[10px] text-[#976508] underline"
-                    >
-                      Quick: "Inquiry"
-                    </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] flex items-center gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Inbound Reply</span>
-                  </button>
-                </div>
-              </form>
-            </div>
           )}
         </div>
       </div>

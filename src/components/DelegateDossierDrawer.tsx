@@ -14,6 +14,7 @@ import {
   MessageSquare,
   AlertOctagon,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { Delegate, RsvpStatus } from '../types/inviteOps';
 
@@ -267,8 +268,13 @@ export const DelegateDossierDrawer: React.FC<DelegateDossierDrawerProps> = ({
                 <div className="space-y-3">
                   <div className="p-3 bg-[#D8EEDF]/40 border border-[#2E7D52]/30 rounded flex items-center justify-between">
                     <div>
-                      <span className="font-semibold text-[#2E7D52] block">
-                        Official Google Form Response Verified
+                      <span className="font-semibold text-[#2E7D52] block flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#2E7D52]" />
+                        <span>
+                          {delegate.tags.includes('AI Email Analyzed')
+                            ? 'Email Inbound Response Analyzed & Verified'
+                            : 'Official Google Form Response Verified'}
+                        </span>
                       </span>
                       <span className="text-[11px] text-[#424844] font-mono">
                         Synced: {new Date(delegate.formData.submittedAt).toLocaleString()}

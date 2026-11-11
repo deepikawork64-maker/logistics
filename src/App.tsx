@@ -121,12 +121,17 @@ export default function App() {
     showFlash(`Dispatched invitation campaign to ${recipientIds.length} delegates via SMTP.`);
   };
 
-  // IMAP Inbound Reply Ingestion
-  const handleSimulateReply = (fromEmail: string, subject: string, body: string) => {
-    const result = InviteStorage.ingestImapReply(fromEmail, subject, body);
+  // IMAP Inbound Reply Ingestion & Live Reading
+  const handleSimulateReply = (
+    fromEmail: string,
+    subject: string,
+    body: string,
+    senderName?: string
+  ) => {
+    const result = InviteStorage.ingestImapReply(fromEmail, subject, body, senderName);
     refreshInviteData();
     showFlash(
-      `IMAP reply ingested from ${fromEmail}! Intent detected: [${result.intent.toUpperCase()}]. Status: ${result.delegate?.status}`,
+      `Email analyzed: [${result.intent.toUpperCase()}] ${result.analysis.executiveSummary}`,
       result.intent === 'declined' ? 'alert' : 'success'
     );
   };
@@ -240,6 +245,12 @@ export default function App() {
           onExportExcel={InviteStorage.exportMasterExcel}
           currentUser={currentUser}
           activeMailboxEmail={imapConfig.emailUser}
+          onClearAllData={() => {
+            InviteStorage.clearAllData();
+            OpsStorage.clearAllData();
+            refreshInviteData();
+            showFlash('All data records cleared. Ready to add your own data!');
+          }}
         />
 
         {/* Global Flash Bar */}

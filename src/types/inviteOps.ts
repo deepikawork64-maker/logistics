@@ -34,7 +34,7 @@ export interface EmailInteraction {
   body: string;
   from: string;
   to: string;
-  detectedIntent?: 'attending' | 'declined' | 'inquiry' | 'general';
+  detectedIntent?: 'attending' | 'declined' | 'inquiry' | 'general' | 'tentative';
 }
 
 export interface Delegate {

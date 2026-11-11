@@ -253,17 +253,36 @@ export const DelegatesTableView: React.FC<DelegatesTableViewProps> = ({
       <div className="bg-[#FBFBFA] rounded border border-[#EBE8E1] overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <Filter className="w-8 h-8 text-[#8F8C84] mx-auto" />
-            <div className="font-serif text-lg text-[#1D1C16]">No matching delegates found</div>
-            <p className="text-xs text-[#8F8C84] max-w-md mx-auto">
-              Upload a new Excel, CSV, or PDF file to add contacts, or clear existing filters.
-            </p>
-            <button
-              onClick={resetFilters}
-              className="px-3 py-1 text-xs font-medium border border-[#E2DFD7] rounded text-[#1E3A2F] hover:bg-[#F5F4F0]"
-            >
-              Reset Filters
-            </button>
+            {delegates.length === 0 ? (
+              <>
+                <FileSpreadsheet className="w-10 h-10 text-[#8F8C84] mx-auto" />
+                <div className="font-serif text-lg text-[#1D1C16]">Your Delegate Roster is Empty</div>
+                <p className="text-xs text-[#525048] max-w-md mx-auto">
+                  All sample data has been cleared. Upload your PDF guest list, Excel sheet (.xlsx, .xls), or CSV file to populate your roster.
+                </p>
+                <button
+                  onClick={onOpenUpload}
+                  className="px-4 py-2 text-xs font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Your Guest List</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Filter className="w-8 h-8 text-[#8F8C84] mx-auto" />
+                <div className="font-serif text-lg text-[#1D1C16]">No matching delegates found</div>
+                <p className="text-xs text-[#8F8C84] max-w-md mx-auto">
+                  No records match your active search or filters. Clear existing filters to view your contacts.
+                </p>
+                <button
+                  onClick={resetFilters}
+                  className="px-3 py-1 text-xs font-medium border border-[#E2DFD7] rounded text-[#1E3A2F] hover:bg-[#F5F4F0]"
+                >
+                  Reset Filters
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

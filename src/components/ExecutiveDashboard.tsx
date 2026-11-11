@@ -108,6 +108,73 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
+      {/* Clean Slate Onboarding Card when no data is loaded */}
+      {total === 0 && (
+        <div className="p-5 md:p-6 bg-white rounded border border-[#E2DFD7] shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-[#EFECE5] text-[#1E3A2F] rounded mb-1.5">
+                Clean Slate Mode • 0 Sample Records
+              </span>
+              <h2 className="font-serif font-semibold text-lg text-[#1D1C16]">
+                Ready to Add Your Real Guest Lists & RSVPs
+              </h2>
+              <p className="text-xs text-[#525048] max-w-2xl mt-1 leading-relaxed">
+                All sample records have been removed. You can now upload your own PDF guest lists, Excel spreadsheets, or CSV rosters, sync your Google Form responses, and connect your IMAP mailbox.
+              </p>
+            </div>
+            <button
+              onClick={onOpenUpload}
+              className="px-4 py-2 font-semibold text-xs bg-[#1E3A2F] text-[#FBFBFA] rounded hover:bg-[#2E7D52] transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Your First Document</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            <div
+              onClick={onOpenUpload}
+              className="p-3.5 bg-[#FAF8F5] rounded border border-[#E2DFD7] hover:border-[#1E3A2F] cursor-pointer transition-all space-y-1 group"
+            >
+              <div className="font-semibold text-xs text-[#1D1C16] group-hover:text-[#1E3A2F] flex items-center justify-between">
+                <span>1. Upload Guest Lists (PDF / Excel / CSV)</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#8F8C84] group-hover:text-[#1E3A2F]" />
+              </div>
+              <p className="text-[11px] text-[#525048]">
+                Drop any attendee sheet. Automatically parses names, emails, phones, and organizations.
+              </p>
+            </div>
+
+            <div
+              onClick={onOpenUpload}
+              className="p-3.5 bg-[#FAF8F5] rounded border border-[#E2DFD7] hover:border-[#1E3A2F] cursor-pointer transition-all space-y-1 group"
+            >
+              <div className="font-semibold text-xs text-[#1D1C16] group-hover:text-[#1E3A2F] flex items-center justify-between">
+                <span>2. Upload Google Form Sheet</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#8F8C84] group-hover:text-[#1E3A2F]" />
+              </div>
+              <p className="text-[11px] text-[#525048]">
+                Upload your downloaded responses sheet to import dietary, hotel, and flight data.
+              </p>
+            </div>
+
+            <div
+              onClick={onOpenImap}
+              className="p-3.5 bg-[#FAF8F5] rounded border border-[#E2DFD7] hover:border-[#1E3A2F] cursor-pointer transition-all space-y-1 group"
+            >
+              <div className="font-semibold text-xs text-[#1D1C16] group-hover:text-[#1E3A2F] flex items-center justify-between">
+                <span>3. Connect IMAP Mailbox</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#8F8C84] group-hover:text-[#1E3A2F]" />
+              </div>
+              <p className="text-[11px] text-[#525048]">
+                Ready for testing with your email, or switch to your client’s organization mailbox.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 6 Key KPI Metric Strips */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Total Ingested */}

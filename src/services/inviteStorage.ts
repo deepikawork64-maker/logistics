@@ -9,14 +9,15 @@ import {
   FormSubmissionData,
   RsvpStatus,
 } from '../types/inviteOps';
+import { MailAnalyzer, AnalyzedEmailResult } from './mailAnalyzer';
 
 const KEYS = {
-  DELEGATES: 'fieldnote_delegates_v2',
-  DOCUMENTS: 'fieldnote_documents_v2',
-  IMAP: 'fieldnote_imap_v2',
-  GFORM: 'fieldnote_gform_v2',
-  CAMPAIGNS: 'fieldnote_campaigns_v2',
-  ACTIVITIES: 'fieldnote_activities_v2',
+  DELEGATES: 'fieldnote_delegates_v3',
+  DOCUMENTS: 'fieldnote_documents_v3',
+  IMAP: 'fieldnote_imap_v3',
+  GFORM: 'fieldnote_gform_v3',
+  CAMPAIGNS: 'fieldnote_campaigns_v3',
+  ACTIVITIES: 'fieldnote_activities_v3',
 };
 
 const DEFAULT_IMAP: ImapConfig = {
@@ -25,21 +26,21 @@ const DEFAULT_IMAP: ImapConfig = {
   smtpHost: 'smtp.gmail.com',
   smtpPort: 465,
   emailUser: 'Deepikawork64@gmail.com',
-  appPassword: '••••••••••••',
+  appPassword: '',
   useSsl: true,
-  connected: true,
-  lastSyncAt: new Date(Date.now() - 45000).toISOString(),
+  connected: false,
+  lastSyncAt: null,
   autoSyncIntervalSec: 30,
 };
 
 const DEFAULT_GFORM: GoogleFormConfig = {
   formTitle: 'Bhopal Summit 2027 Official RSVP & Protocol Confirmation',
-  formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLScX9.../viewform',
-  responseSheetUrl: 'https://docs.google.com/spreadsheets/d/1BhopalSummit.../pub?output=csv',
-  webhookUrl: 'https://ais-dev.bhopalsummit.org/api/webhooks/gform',
-  connected: true,
-  lastSyncAt: new Date(Date.now() - 120000).toISOString(),
-  totalSubmissions: 28,
+  formUrl: '',
+  responseSheetUrl: '',
+  webhookUrl: '',
+  connected: false,
+  lastSyncAt: null,
+  totalSubmissions: 0,
   fieldMappings: {
     emailField: 'Email Address',
     nameField: 'Full Name & Title',
@@ -50,372 +51,13 @@ const DEFAULT_GFORM: GoogleFormConfig = {
   },
 };
 
-const DEFAULT_CAMPAIGNS: Campaign[] = [
-  {
-    id: 'camp-1',
-    title: 'Round 1: VVIP & Ministerial Delegations Formal Summons',
-    subject: 'Official Invitation: Bhopal Global Investor Summit (January 2027) [INV-{{ID}}]',
-    bodyTemplate:
-      'Dear {{Name}},\n\nOn behalf of the Government of Madhya Pradesh and the Summit Secretariat, we have the high honor to invite you to the Bhopal Global Investor Summit.\n\nPlease confirm your attendance by replying to this transmission or completing the official protocol Google Form below:\n{{GoogleFormLink}}\n\nWarm regards,\nDr. A. Sen\nChief Protocol Officer',
-    googleFormUrl: 'https://docs.google.com/forms/d/e/1FAIpQLScX9.../viewform',
-    sentAt: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
-    recipientCount: 35,
-    confirmedCount: 22,
-    declinedCount: 3,
-    status: 'Completed',
-  },
-  {
-    id: 'camp-2',
-    title: 'Round 2: Corporate Leaders & Technical Speakers Invite',
-    subject: 'Invitation to Lead Plenary Session: Bhopal Summit 2027 [INV-{{ID}}]',
-    bodyTemplate:
-      'Dear {{Name}},\n\nWe cordially invite you to represent {{Organization}} at the Bhopal Summit. Kindly register your travel details and confirmation on the link below:\n{{GoogleFormLink}}\n\nSummit Operations Desk',
-    googleFormUrl: 'https://docs.google.com/forms/d/e/1FAIpQLScX9.../viewform',
-    sentAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    recipientCount: 42,
-    confirmedCount: 16,
-    declinedCount: 2,
-    status: 'Completed',
-  },
-];
+const DEFAULT_CAMPAIGNS: Campaign[] = [];
 
-const INITIAL_DOCS: UploadedDocument[] = [
-  {
-    id: 'doc-01',
-    fileName: 'VIP_Diplomatic_Delegates_Manifest_2027.xlsx',
-    fileType: 'xlsx',
-    fileSize: '48.2 KB',
-    uploadedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-    recordCount: 24,
-    status: 'Parsed & Imported',
-  },
-  {
-    id: 'doc-02',
-    fileName: 'Registered_Keynote_Speakers_List.csv',
-    fileType: 'csv',
-    fileSize: '18.6 KB',
-    uploadedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    recordCount: 18,
-    status: 'Parsed & Imported',
-  },
-  {
-    id: 'doc-03',
-    fileName: 'Chamber_Of_Commerce_CEOs_Roster.pdf',
-    fileType: 'pdf',
-    fileSize: '124.5 KB',
-    uploadedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-    recordCount: 16,
-    status: 'Parsed & Imported',
-  },
-];
+const INITIAL_DOCS: UploadedDocument[] = [];
 
-const INITIAL_DELEGATES: Delegate[] = [
-  {
-    id: 'del-1',
-    name: 'Ambassador Jean-Luc Morel',
-    email: 'ambassador.morel@diplomatie.gouv.fr',
-    phone: '+33 1 43 17 53 53',
-    organization: 'Embassy of France to India',
-    designation: 'Ambassador Extraordinary and Plenipotentiary',
-    tier: 'VVIP / Minister',
-    status: 'Confirmed (Attending)',
-    sourceDocName: 'VIP_Diplomatic_Delegates_Manifest_2027.xlsx',
-    invitationSentAt: new Date(Date.now() - 3600000 * 40).toISOString(),
-    formSubmittedAt: new Date(Date.now() - 3600000 * 16).toISOString(),
-    formData: {
-      submittedAt: new Date(Date.now() - 3600000 * 16).toISOString(),
-      attending: true,
-      phone: '+33 1 43 17 53 53',
-      organization: 'Embassy of France',
-      designation: 'Ambassador',
-      dietary: 'No red meat / European vegetarian acceptable',
-      hotelRequired: true,
-      arrivalFlight: 'AF-226 / AI-433 Connection',
-      arrivalTime: 'Jan 14, 10:15 IST at Raja Bhoj',
-      accompanyingGuests: 3,
-      notes: 'Requires VIP Ramp Gate 2 clearance at Jehan Numa Palace.',
-    },
-    interactions: [
-      {
-        id: 'msg-1',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 40).toISOString(),
-        subject: 'Official Invitation: Bhopal Global Investor Summit [INV-del-1]',
-        body: 'Your Excellency, on behalf of the Governor of Madhya Pradesh...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'ambassador.morel@diplomatie.gouv.fr',
-      },
-      {
-        id: 'msg-2',
-        type: 'inbound_reply',
-        timestamp: new Date(Date.now() - 3600000 * 22).toISOString(),
-        subject: 'Re: Official Invitation: Bhopal Global Investor Summit [INV-del-1]',
-        body: 'I am delighted to accept. We have also completed the attached Google Form with our motorcade specifications.',
-        from: 'ambassador.morel@diplomatie.gouv.fr',
-        to: 'Deepikawork64@gmail.com',
-        detectedIntent: 'attending',
-      },
-    ],
-    tags: ['VIP Protocol', 'Foreign Delegation', 'French Republic'],
-  },
-  {
-    id: 'del-2',
-    name: 'Prof. Ananya Roy',
-    email: 'ananya.roy@csir.res.in',
-    phone: '+91 98260 11442',
-    organization: 'CSIR & IIT Indore',
-    designation: 'Chair of Clean Energy Microgrids',
-    tier: 'Speaker',
-    status: 'Confirmed (Attending)',
-    sourceDocName: 'Registered_Keynote_Speakers_List.csv',
-    invitationSentAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    formSubmittedAt: new Date(Date.now() - 3600000 * 6).toISOString(),
-    formData: {
-      submittedAt: new Date(Date.now() - 3600000 * 6).toISOString(),
-      attending: true,
-      phone: '+91 98260 11442',
-      organization: 'CSIR & IIT Indore',
-      designation: 'Chair Professor',
-      dietary: 'Standard Vegetarian',
-      hotelRequired: true,
-      arrivalFlight: 'Train: Shatabdi Express from Delhi',
-      arrivalTime: 'Jan 13, 21:40 IST Bhopal Junction',
-      accompanyingGuests: 0,
-      notes: 'Requires HDMI display connection for Stage B slides.',
-    },
-    interactions: [
-      {
-        id: 'msg-3',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 20).toISOString(),
-        subject: 'Invitation to Lead Plenary Session: Bhopal Summit 2027 [INV-del-2]',
-        body: 'Dear Prof. Roy, we cordially invite you to speak...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'ananya.roy@csir.res.in',
-      },
-    ],
-    tags: ['Keynote Speaker', 'Clean Tech'],
-  },
-  {
-    id: 'del-3',
-    name: 'Vikramaditya K. Singhania',
-    email: 'v.singhania@apexindustrial.com',
-    phone: '+91 98110 99882',
-    organization: 'Apex Industrial Holdings',
-    designation: 'Managing Director & CEO',
-    tier: 'Corporate CEO',
-    status: 'Replied (Email)',
-    sourceDocName: 'Chamber_Of_Commerce_CEOs_Roster.pdf',
-    invitationSentAt: new Date(Date.now() - 3600000 * 18).toISOString(),
-    lastReplyAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-    interactions: [
-      {
-        id: 'msg-4',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
-        subject: 'Invitation to Lead Plenary Session: Bhopal Summit 2027 [INV-del-3]',
-        body: 'Dear Mr. Singhania, we cordially invite you...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'v.singhania@apexindustrial.com',
-      },
-      {
-        id: 'msg-5',
-        type: 'inbound_reply',
-        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-        subject: 'Re: Invitation to Lead Plenary Session: Bhopal Summit 2027 [INV-del-3]',
-        body: 'Thank you for the invitation. Could you please share the bilateral roundtable schedule before we finalize our charter flight timings?',
-        from: 'v.singhania@apexindustrial.com',
-        to: 'Deepikawork64@gmail.com',
-        detectedIntent: 'inquiry',
-      },
-    ],
-    tags: ['Investor', 'Bilateral Session'],
-  },
-  {
-    id: 'del-4',
-    name: 'Dr. Tariq Al-Hashimi',
-    email: 'tariq.hashimi@araburban.org',
-    phone: '+971 4 282 9900',
-    organization: 'Council of Historic Islamic Cities',
-    designation: 'Secretary General',
-    tier: 'Head of Delegation',
-    status: 'Form Submitted',
-    sourceDocName: 'VIP_Diplomatic_Delegates_Manifest_2027.xlsx',
-    invitationSentAt: new Date(Date.now() - 3600000 * 30).toISOString(),
-    formSubmittedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    formData: {
-      submittedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-      attending: true,
-      phone: '+971 4 282 9900',
-      organization: 'Council of Historic Cities',
-      designation: 'Secretary General',
-      dietary: 'Strict Halal Meals',
-      hotelRequired: true,
-      arrivalFlight: 'EK-512 via Mumbai to Bhopal AI-634',
-      arrivalTime: 'Jan 14, 13:45 IST',
-      accompanyingGuests: 2,
-    },
-    interactions: [
-      {
-        id: 'msg-6',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 30).toISOString(),
-        subject: 'Official Invitation: Bhopal Global Investor Summit [INV-del-4]',
-        body: 'Your Excellency Dr. Tariq...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'tariq.hashimi@araburban.org',
-      },
-    ],
-    tags: ['Taj-ul-Masajid Concourse', 'Heritage Plenary'],
-  },
-  {
-    id: 'del-5',
-    name: 'Kavita Jain',
-    email: 'kavita.jain@vcpartners.in',
-    phone: '+91 99200 33411',
-    organization: 'Apex Ventures India',
-    designation: 'General Partner',
-    tier: 'Corporate CEO',
-    status: 'Confirmed (Attending)',
-    sourceDocName: 'Registered_Keynote_Speakers_List.csv',
-    invitationSentAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-    formSubmittedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-    formData: {
-      submittedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-      attending: true,
-      dietary: 'Strict Jain Vegetarian (no onion/garlic/root crops)',
-      hotelRequired: false,
-      arrivalFlight: 'Self-drive from Indore',
-      arrivalTime: 'Jan 14, 08:30 IST',
-      accompanyingGuests: 0,
-    },
-    interactions: [
-      {
-        id: 'msg-7',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-        subject: 'Invitation: Bhopal Summit 2027 [INV-del-5]',
-        body: 'Dear Ms. Jain...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'kavita.jain@vcpartners.in',
-      },
-    ],
-    tags: ['Startup Funding Panel'],
-  },
-  {
-    id: 'del-6',
-    name: 'Sir Robert Sterling',
-    email: 'r.sterling@commonwealthtrust.uk',
-    phone: '+44 20 7946 0192',
-    organization: 'Commonwealth Heritage Fund',
-    designation: 'Senior Trustee',
-    tier: 'Head of Delegation',
-    status: 'Declined',
-    sourceDocName: 'VIP_Diplomatic_Delegates_Manifest_2027.xlsx',
-    invitationSentAt: new Date(Date.now() - 3600000 * 36).toISOString(),
-    lastReplyAt: new Date(Date.now() - 3600000 * 10).toISOString(),
-    interactions: [
-      {
-        id: 'msg-8',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 36).toISOString(),
-        subject: 'Official Invitation: Bhopal Global Investor Summit [INV-del-6]',
-        body: 'Dear Sir Robert...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'r.sterling@commonwealthtrust.uk',
-      },
-      {
-        id: 'msg-9',
-        type: 'inbound_reply',
-        timestamp: new Date(Date.now() - 3600000 * 10).toISOString(),
-        subject: 'Re: Official Invitation: Bhopal Global Investor Summit [INV-del-6]',
-        body: 'Regrettably, due to pre-existing parliamentary commitments in London, I will be unable to travel to Bhopal. My deputy Mr. Colin Vance will attend in my stead.',
-        from: 'r.sterling@commonwealthtrust.uk',
-        to: 'Deepikawork64@gmail.com',
-        detectedIntent: 'declined',
-      },
-    ],
-    tags: ['Regrets Received', 'UK Delegation'],
-  },
-  {
-    id: 'del-7',
-    name: 'Dr. Priya Saxena',
-    email: 'dr.priya.saxena@aiimsbhopal.edu.in',
-    phone: '+91 94250 88211',
-    organization: 'AIIMS Bhopal Medical Command',
-    designation: 'Head of Emergency & Disaster Medicine',
-    tier: 'Speaker',
-    status: 'Invitation Sent',
-    sourceDocName: 'Registered_Keynote_Speakers_List.csv',
-    invitationSentAt: new Date(Date.now() - 3600000 * 6).toISOString(),
-    interactions: [
-      {
-        id: 'msg-10',
-        type: 'invitation_sent',
-        timestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
-        subject: 'Invitation to Lead Plenary Session: Bhopal Summit 2027 [INV-del-7]',
-        body: 'Dear Dr. Saxena...',
-        from: 'Deepikawork64@gmail.com',
-        to: 'dr.priya.saxena@aiimsbhopal.edu.in',
-      },
-    ],
-    tags: ['Medical Protocol', 'Emergency Response'],
-  },
-  {
-    id: 'del-8',
-    name: 'Suresh K. Narang',
-    email: 'suresh.narang@mpdiscom.gov.in',
-    phone: '+91 94251 00293',
-    organization: 'Madhya Pradesh Central Discom',
-    designation: 'Chief Engineer (Substations)',
-    tier: 'General Delegate',
-    status: 'Not Invited',
-    sourceDocName: 'VIP_Diplomatic_Delegates_Manifest_2027.xlsx',
-    interactions: [],
-    tags: ['Power & Grid Liaison'],
-  },
-];
+const INITIAL_DELEGATES: Delegate[] = [];
 
-const INITIAL_ACTIVITIES: ActivityEvent[] = [
-  {
-    id: 'act-1',
-    timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
-    type: 'form_submission',
-    title: 'Google Form Response Synced',
-    description: 'Kavita Jain submitted RSVP form. Dietary: Strict Jain Vegetarian, Status: Confirmed.',
-    delegateEmail: 'kavita.jain@vcpartners.in',
-  },
-  {
-    id: 'act-2',
-    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    type: 'form_submission',
-    title: 'Google Form Response Synced',
-    description: 'Dr. Tariq Al-Hashimi submitted RSVP form. Flight EK-512 / AI-634, Hotel Required.',
-    delegateEmail: 'tariq.hashimi@araburban.org',
-  },
-  {
-    id: 'act-3',
-    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-    type: 'imap_reply_received',
-    title: 'Inbound Email Reply Received',
-    description: 'Vikramaditya K. Singhania inquired about bilateral schedule. Status changed to Replied (Email).',
-    delegateEmail: 'v.singhania@apexindustrial.com',
-  },
-  {
-    id: 'act-4',
-    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
-    type: 'email_sent',
-    title: 'Campaign 2 Dispatched',
-    description: 'Dispatched 42 personalized email invitations with Google Form link attached.',
-  },
-  {
-    id: 'act-5',
-    timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    type: 'document_uploaded',
-    title: 'Document Parsed & Ingested',
-    description: 'Chamber_Of_Commerce_CEOs_Roster.pdf uploaded. 16 corporate delegates extracted.',
-  },
-];
+const INITIAL_ACTIVITIES: ActivityEvent[] = [];
 
 export class InviteStorage {
   private static read<T>(key: string, def: T): T {
@@ -436,11 +78,24 @@ export class InviteStorage {
   }
 
   static init(): void {
+    // Purge any older sample data keys from previous versions
+    const legacyKeys = [
+      'fieldnote_delegates_v2',
+      'fieldnote_documents_v2',
+      'fieldnote_campaigns_v2',
+      'fieldnote_activities_v2',
+      'fieldnote_delegates_v1',
+      'fieldnote_documents_v1',
+      'fieldnote_campaigns_v1',
+      'fieldnote_activities_v1',
+    ];
+    legacyKeys.forEach((k) => localStorage.removeItem(k));
+
     if (!localStorage.getItem(KEYS.DELEGATES)) {
-      this.write(KEYS.DELEGATES, INITIAL_DELEGATES);
+      this.write(KEYS.DELEGATES, []);
     }
     if (!localStorage.getItem(KEYS.DOCUMENTS)) {
-      this.write(KEYS.DOCUMENTS, INITIAL_DOCS);
+      this.write(KEYS.DOCUMENTS, []);
     }
     if (!localStorage.getItem(KEYS.IMAP)) {
       this.write(KEYS.IMAP, DEFAULT_IMAP);
@@ -449,11 +104,32 @@ export class InviteStorage {
       this.write(KEYS.GFORM, DEFAULT_GFORM);
     }
     if (!localStorage.getItem(KEYS.CAMPAIGNS)) {
-      this.write(KEYS.CAMPAIGNS, DEFAULT_CAMPAIGNS);
+      this.write(KEYS.CAMPAIGNS, []);
     }
     if (!localStorage.getItem(KEYS.ACTIVITIES)) {
-      this.write(KEYS.ACTIVITIES, INITIAL_ACTIVITIES);
+      this.write(KEYS.ACTIVITIES, []);
     }
+  }
+
+  static clearAllData(): void {
+    this.write(KEYS.DELEGATES, []);
+    this.write(KEYS.DOCUMENTS, []);
+    this.write(KEYS.CAMPAIGNS, []);
+    this.write(KEYS.ACTIVITIES, []);
+    const gform = this.getGoogleFormConfig();
+    gform.totalSubmissions = 0;
+    gform.lastSyncAt = null;
+    this.write(KEYS.GFORM, gform);
+
+    const legacy = [
+      'fieldnote_delegates_v2',
+      'fieldnote_documents_v2',
+      'fieldnote_campaigns_v2',
+      'fieldnote_activities_v2',
+      'fieldnote_delegates_v1',
+      'fieldnote_documents_v1',
+    ];
+    legacy.forEach((k) => localStorage.removeItem(k));
   }
 
   static getDelegates(): Delegate[] {
@@ -625,50 +301,56 @@ export class InviteStorage {
     return newCamp;
   }
 
-  // Auto-Update on IMAP Inbound Reply
+  // Auto-Update on IMAP Inbound Reply with Deep NLP Reading
   static ingestImapReply(
     fromEmail: string,
     subject: string,
-    body: string
-  ): { matched: boolean; delegate?: Delegate; intent: string } {
+    body: string,
+    senderName?: string
+  ): { matched: boolean; delegate: Delegate; intent: string; analysis: AnalyzedEmailResult } {
+    const analysis = MailAnalyzer.analyzeEmail(fromEmail, subject, body, senderName);
     const delegates = this.getDelegates();
-    const cleanFrom = fromEmail.toLowerCase().trim();
+    const cleanFrom = analysis.senderEmail;
     const idx = delegates.findIndex((d) => d.email.toLowerCase() === cleanFrom);
-
-    const text = `${subject} ${body}`.toLowerCase();
-    let intent: 'attending' | 'declined' | 'inquiry' | 'general' = 'general';
-
-    if (
-      text.includes('pleased to attend') ||
-      text.includes('delighted to accept') ||
-      text.includes('will attend') ||
-      text.includes('confirming my attendance') ||
-      text.includes('see you in bhopal')
-    ) {
-      intent = 'attending';
-    } else if (
-      text.includes('unable to attend') ||
-      text.includes('regret') ||
-      text.includes('cannot make it') ||
-      text.includes('decline') ||
-      text.includes('prior engagement')
-    ) {
-      intent = 'declined';
-    } else if (text.includes('?') || text.includes('schedule') || text.includes('hotel') || text.includes('timing')) {
-      intent = 'inquiry';
-    }
-
     const nowIso = new Date().toISOString();
+
+    let targetDelegate: Delegate;
 
     if (idx !== -1) {
       const d = delegates[idx];
       d.lastReplyAt = nowIso;
-      if (intent === 'attending') {
-        d.status = 'Confirmed (Attending)';
-      } else if (intent === 'declined') {
-        d.status = 'Declined';
-      } else {
-        d.status = 'Replied (Email)';
+      d.status = analysis.status;
+
+      // Merge or initialize structured form/response data from email reading
+      const existingForm = d.formData || {
+        submittedAt: nowIso,
+        attending: analysis.detectedIntent === 'attending',
+      };
+
+      d.formData = {
+        ...existingForm,
+        submittedAt: existingForm.submittedAt || nowIso,
+        attending: analysis.detectedIntent === 'attending',
+        dietary: analysis.extractedAttributes.dietary || existingForm.dietary,
+        hotelRequired:
+          analysis.extractedAttributes.hotelRequired !== undefined
+            ? analysis.extractedAttributes.hotelRequired
+            : existingForm.hotelRequired,
+        arrivalFlight: analysis.extractedAttributes.arrivalFlight || existingForm.arrivalFlight,
+        arrivalTime: analysis.extractedAttributes.arrivalTime || existingForm.arrivalTime,
+        accompanyingGuests:
+          analysis.extractedAttributes.accompanyingGuests || existingForm.accompanyingGuests || 0,
+        notes: d.formData?.notes
+          ? `${d.formData.notes}\n[Email Analysis]: ${analysis.executiveSummary}`
+          : `[Email Analysis]: ${analysis.executiveSummary}`,
+      };
+
+      if (analysis.extractedAttributes.phone && !d.phone) {
+        d.phone = analysis.extractedAttributes.phone;
+      }
+
+      if (!d.tags.includes('AI Email Analyzed')) {
+        d.tags.push('AI Email Analyzed');
       }
 
       d.interactions.push({
@@ -679,30 +361,44 @@ export class InviteStorage {
         body,
         from: fromEmail,
         to: this.getImapConfig().emailUser,
-        detectedIntent: intent,
+        detectedIntent: analysis.detectedIntent,
       });
 
       delegates[idx] = d;
       this.write(KEYS.DELEGATES, delegates);
+      targetDelegate = d;
 
       this.logActivity(
         'imap_reply_received',
-        `IMAP Inbound Reply from ${d.name}`,
-        `Detected Intent: [${intent.toUpperCase()}]. Status updated automatically to ${d.status}.`,
+        `IMAP Inbound Mail Analyzed: ${d.name}`,
+        `${analysis.executiveSummary} | Status: ${d.status} (${Math.round(analysis.confidence * 100)}% confidence)`,
         d.email
       );
 
-      return { matched: true, delegate: d, intent };
+      return { matched: true, delegate: d, intent: analysis.detectedIntent, analysis };
     } else {
-      // Unrecognized delegate reply -> create record
-      const name = fromEmail.split('@')[0].replace(/[._-]/g, ' ');
+      // Unrecognized delegate replying -> Auto-enroll guest record with extracted properties
+      const capitalizedName =
+        analysis.senderName.charAt(0).toUpperCase() + analysis.senderName.slice(1);
+
       const newD: Delegate = {
         id: `del-${Date.now()}`,
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        email: fromEmail,
+        name: capitalizedName,
+        email: cleanFrom,
+        phone: analysis.extractedAttributes.phone,
         tier: 'General Delegate',
-        status: intent === 'attending' ? 'Confirmed (Attending)' : 'Replied (Email)',
+        status: analysis.status,
         lastReplyAt: nowIso,
+        formData: {
+          submittedAt: nowIso,
+          attending: analysis.detectedIntent === 'attending',
+          dietary: analysis.extractedAttributes.dietary,
+          hotelRequired: analysis.extractedAttributes.hotelRequired,
+          arrivalFlight: analysis.extractedAttributes.arrivalFlight,
+          arrivalTime: analysis.extractedAttributes.arrivalTime,
+          accompanyingGuests: analysis.extractedAttributes.accompanyingGuests || 0,
+          notes: `[Email Analysis]: ${analysis.executiveSummary}`,
+        },
         interactions: [
           {
             id: `reply-${Date.now()}`,
@@ -712,22 +408,24 @@ export class InviteStorage {
             body,
             from: fromEmail,
             to: this.getImapConfig().emailUser,
-            detectedIntent: intent,
+            detectedIntent: analysis.detectedIntent,
           },
         ],
-        tags: ['Inbound Email Discovered'],
+        tags: ['Inbound Email Discovered', 'AI Email Analyzed'],
       };
+
       delegates.push(newD);
       this.write(KEYS.DELEGATES, delegates);
+      targetDelegate = newD;
 
       this.logActivity(
         'imap_reply_received',
-        `New Attendee Email Ingested: ${fromEmail}`,
-        `Auto-created guest record. Intent: ${intent}.`,
-        fromEmail
+        `New Attendee Enrolled via Email: ${cleanFrom}`,
+        `${analysis.executiveSummary} | Auto-created guest dossier. Status: ${newD.status}`,
+        cleanFrom
       );
 
-      return { matched: false, delegate: newD, intent };
+      return { matched: false, delegate: newD, intent: analysis.detectedIntent, analysis };
     }
   }
 

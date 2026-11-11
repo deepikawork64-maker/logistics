@@ -9,6 +9,7 @@ import {
   Search,
   Eye,
   Download,
+  FolderOpen,
 } from 'lucide-react';
 import { UploadedDocument, Delegate } from '../types/inviteOps';
 
@@ -61,64 +62,80 @@ export const DocumentRegistryView: React.FC<DocumentRegistryViewProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Document Cards List */}
-        <div className="space-y-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8F8C84]">
-            Uploaded Manifest Files ({documents.length})
-          </div>
+      {documents.length === 0 ? (
+        <div className="bg-[#FBFBFA] p-12 rounded border border-[#EBE8E1] text-center space-y-3">
+          <FolderOpen className="w-10 h-10 text-[#8F8C84] mx-auto" />
+          <h3 className="font-serif text-lg text-[#1D1C16]">No Documents Uploaded Yet</h3>
+          <p className="text-xs text-[#525048] max-w-md mx-auto">
+            You can upload multiple Excel files (.xlsx, .xls), CSVs, or PDF delegate rosters continuously. Every document will be cataloged and parsed into your master roster.
+          </p>
+          <button
+            onClick={onOpenUpload}
+            className="px-4 py-2 text-xs font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Your First Document</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Document Cards List */}
+          <div className="space-y-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8F8C84]">
+              Uploaded Manifest Files ({documents.length})
+            </div>
 
-          <div className="space-y-2.5">
-            {documents.map((doc) => {
-              const isSelected = selectedDocId === doc.id;
-              const isExcel = doc.fileType === 'xlsx' || doc.fileType === 'xls';
-              const isCsv = doc.fileType === 'csv';
-              const isPdf = doc.fileType === 'pdf';
+            <div className="space-y-2.5">
+              {documents.map((doc) => {
+                const isSelected = selectedDocId === doc.id;
+                const isExcel = doc.fileType === 'xlsx' || doc.fileType === 'xls';
+                const isCsv = doc.fileType === 'csv';
+                const isPdf = doc.fileType === 'pdf';
 
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => setSelectedDocId(doc.id)}
-                  className={`p-3.5 rounded border transition-all cursor-pointer space-y-2 ${
-                    isSelected
-                      ? 'bg-white border-[#1E3A2F] shadow-sm ring-1 ring-[#1E3A2F]'
-                      : 'bg-[#FBFBFA] border-[#EBE8E1] hover:bg-[#F5F4F0]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2.5">
-                      {isPdf ? (
-                        <FileText className="w-4 h-4 text-[#B83A2C] shrink-0 mt-0.5" />
-                      ) : (
-                        <FileSpreadsheet className="w-4 h-4 text-[#2E7D52] shrink-0 mt-0.5" />
-                      )}
-                      <div>
-                        <div className="font-semibold text-xs text-[#1D1C16] leading-snug">
-                          {doc.fileName}
-                        </div>
-                        <div className="text-[10px] text-[#8F8C84] mt-0.5">
-                          Uploaded {new Date(doc.uploadedAt).toLocaleString()}
+                return (
+                  <div
+                    key={doc.id}
+                    onClick={() => setSelectedDocId(doc.id)}
+                    className={`p-3.5 rounded border transition-all cursor-pointer space-y-2 ${
+                      isSelected
+                        ? 'bg-white border-[#1E3A2F] shadow-sm ring-1 ring-[#1E3A2F]'
+                        : 'bg-[#FBFBFA] border-[#EBE8E1] hover:bg-[#F5F4F0]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5">
+                        {isPdf ? (
+                          <FileText className="w-4 h-4 text-[#B83A2C] shrink-0 mt-0.5" />
+                        ) : (
+                          <FileSpreadsheet className="w-4 h-4 text-[#2E7D52] shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <div className="font-semibold text-xs text-[#1D1C16] leading-snug">
+                            {doc.fileName}
+                          </div>
+                          <div className="text-[10px] text-[#8F8C84] mt-0.5">
+                            Uploaded {new Date(doc.uploadedAt).toLocaleString()}
+                          </div>
                         </div>
                       </div>
+
+                      <span className="font-mono text-[10px] uppercase font-semibold px-1.5 py-0.2 rounded bg-[#EFECE5] text-[#1E3A2F]">
+                        {doc.fileType}
+                      </span>
                     </div>
 
-                    <span className="font-mono text-[10px] uppercase font-semibold px-1.5 py-0.2 rounded bg-[#EFECE5] text-[#1E3A2F]">
-                      {doc.fileType}
-                    </span>
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-black/5 text-[#424844]">
+                      <span className="flex items-center gap-1 font-mono font-medium">
+                        <Users className="w-3 h-3 text-[#1E3A2F]" />
+                        <span>{doc.recordCount} Extracted Delegates</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-[#8F8C84]">{doc.fileSize}</span>
+                    </div>
                   </div>
-
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-black/5 text-[#424844]">
-                    <span className="flex items-center gap-1 font-mono font-medium">
-                      <Users className="w-3 h-3 text-[#1E3A2F]" />
-                      <span>{doc.recordCount} Extracted Delegates</span>
-                    </span>
-                    <span className="font-mono text-[10px] text-[#8F8C84]">{doc.fileSize}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
 
         {/* Selected Document Details & Extracted Delegates Table */}
         <div className="lg:col-span-2 bg-[#FBFBFA] rounded border border-[#EBE8E1] p-4 flex flex-col">
@@ -206,11 +223,12 @@ export const DocumentRegistryView: React.FC<DocumentRegistryViewProps> = ({
             </div>
           ) : (
             <div className="p-8 text-center text-xs text-[#8F8C84]">
-              No documents uploaded yet. Click "+ Upload Another Document" to begin.
+              Select an uploaded document to review its extracted contacts.
             </div>
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
