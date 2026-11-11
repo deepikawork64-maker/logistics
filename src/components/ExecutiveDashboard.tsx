@@ -168,7 +168,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <ArrowRight className="w-3.5 h-3.5 text-[#8F8C84] group-hover:text-[#1E3A2F]" />
               </div>
               <p className="text-[11px] text-[#525048]">
-                Ready for testing with your email, or switch to your client’s organization mailbox.
+                Configure your IMAP & SMTP credentials to auto-read attendee replies and track RSVPs live.
               </p>
             </div>
           </div>

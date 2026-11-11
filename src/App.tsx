@@ -29,7 +29,6 @@ import {
   ImapConfig,
   GoogleFormConfig,
   RsvpStatus,
-  MailboxProfile,
 } from './types/inviteOps';
 import { TicketRequest, TicketMessage, StatusHistoryEntry, User } from './types/system';
 import { CheckCircle2, AlertOctagon } from 'lucide-react';
@@ -44,7 +43,6 @@ export default function App() {
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [imapConfig, setImapConfig] = useState<ImapConfig>(InviteStorage.getImapConfig());
-  const [mailboxProfiles, setMailboxProfiles] = useState<MailboxProfile[]>(InviteStorage.getMailboxProfiles());
   const [gformConfig, setGformConfig] = useState<GoogleFormConfig>(InviteStorage.getGoogleFormConfig());
   const [selectedDelegate, setSelectedDelegate] = useState<Delegate | null>(null);
 
@@ -78,7 +76,6 @@ export default function App() {
     setActivities(InviteStorage.getActivities());
     setCampaigns(InviteStorage.getCampaigns());
     setImapConfig(InviteStorage.getImapConfig());
-    setMailboxProfiles(InviteStorage.getMailboxProfiles());
     setGformConfig(InviteStorage.getGoogleFormConfig());
     setRequests(OpsStorage.getRequests());
   }, []);
@@ -396,7 +393,7 @@ export default function App() {
         onSendCampaign={handleSendCampaign}
       />
 
-      {/* IMAP Connection, Multi-Mailbox Switcher & Reply Simulator Modal */}
+      {/* IMAP Mailbox Settings & Live Email Reader Modal */}
       <ImapSettingsModal
         isOpen={isImapModalOpen}
         onClose={() => setIsImapModalOpen(false)}
@@ -404,23 +401,10 @@ export default function App() {
         onSaveConfig={(cfg) => {
           InviteStorage.setImapConfig(cfg);
           refreshInviteData();
-          showFlash('IMAP mailbox settings updated.');
+          showFlash('IMAP mailbox settings updated successfully.');
         }}
         delegates={delegates}
         onSimulateReply={handleSimulateReply}
-        mailboxProfiles={mailboxProfiles}
-        onSwitchProfile={(profileId) => {
-          const switched = InviteStorage.switchActiveMailbox(profileId);
-          if (switched) {
-            refreshInviteData();
-            showFlash(`Active Mailbox switched to ${switched.name} (${switched.emailUser})!`);
-          }
-        }}
-        onSaveProfile={(prof) => {
-          InviteStorage.saveMailboxProfile(prof);
-          refreshInviteData();
-          showFlash(`Mailbox profile "${prof.name}" saved!`);
-        }}
       />
 
       {/* Google Form Settings & Webhook Simulator Modal */}
