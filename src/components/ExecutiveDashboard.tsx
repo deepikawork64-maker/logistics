@@ -29,6 +29,7 @@ interface ExecutiveDashboardProps {
   onOpenGoogleForm: () => void;
   onSelectDelegate: (delegate: Delegate) => void;
   onNavigateToDelegates: (filterStatus?: string) => void;
+  onNavigateToInbox?: () => void;
   onExportExcel: () => void;
 }
 
@@ -43,6 +44,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   onOpenGoogleForm,
   onSelectDelegate,
   onNavigateToDelegates,
+  onNavigateToInbox,
   onExportExcel,
 }) => {
   const total = delegates.length;
@@ -160,15 +162,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
 
             <div
-              onClick={onOpenImap}
+              onClick={onNavigateToInbox || onOpenImap}
               className="p-3.5 bg-[#FAF8F5] rounded border border-[#E2DFD7] hover:border-[#1E3A2F] cursor-pointer transition-all space-y-1 group"
             >
               <div className="font-semibold text-xs text-[#1D1C16] group-hover:text-[#1E3A2F] flex items-center justify-between">
-                <span>3. Connect IMAP Mailbox</span>
+                <span>3. Live IMAP Inbox & Classifier</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#8F8C84] group-hover:text-[#1E3A2F]" />
               </div>
               <p className="text-[11px] text-[#525048]">
-                Configure your IMAP & SMTP credentials to auto-read attendee replies and track RSVPs live.
+                View all emails, auto-read attendee replies, and track RSVPs and dietary needs live.
               </p>
             </div>
           </div>

@@ -8,6 +8,8 @@ import {
   ActivityEvent,
   FormSubmissionData,
   RsvpStatus,
+  InboxEmail,
+  EmailClassification,
 } from '../types/inviteOps';
 import { MailAnalyzer, AnalyzedEmailResult } from './mailAnalyzer';
 
@@ -18,6 +20,7 @@ const KEYS = {
   GFORM: 'fieldnote_gform_v3',
   CAMPAIGNS: 'fieldnote_campaigns_v3',
   ACTIVITIES: 'fieldnote_activities_v3',
+  INBOX: 'fieldnote_inbox_v3',
 };
 
 const DEFAULT_IMAP: ImapConfig = {
@@ -116,6 +119,7 @@ export class InviteStorage {
     this.write(KEYS.DOCUMENTS, []);
     this.write(KEYS.CAMPAIGNS, []);
     this.write(KEYS.ACTIVITIES, []);
+    this.write(KEYS.INBOX, []);
     const gform = this.getGoogleFormConfig();
     gform.totalSubmissions = 0;
     gform.lastSyncAt = null;
@@ -733,6 +737,165 @@ export class InviteStorage {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Summit_Delegates_RSVP');
     XLSX.writeFile(workbook, `Bhopal_Summit_RSVP_Master_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  // --- INBOX METHODS ---
+  static getInboxEmails(): InboxEmail[] {
+    return this.read<InboxEmail[]>(KEYS.INBOX, []);
+  }
+
+  static saveInboxEmails(emails: InboxEmail[]): void {
+    this.write(KEYS.INBOX, emails);
+  }
+
+  static markInboxEmailAsRead(id: string): void {
+    const list = this.getInboxEmails();
+    const idx = list.findIndex((e) => e.id === id);
+    if (idx !== -1) {
+      list[idx].isRead = true;
+      this.saveInboxEmails(list);
+    }
+  }
+
+  static deleteInboxEmail(id: string): void {
+    const list = this.getInboxEmails().filter((e) => e.id !== id);
+    this.saveInboxEmails(list);
+  }
+
+  static ingestRawEmailToInbox(raw: {
+    uid: number;
+    seq?: number;
+    fromEmail: string;
+    fromName?: string;
+    toEmail?: string;
+    subject: string;
+    textBody: string;
+    date?: string;
+    snippet?: string;
+    isRead?: boolean;
+  }): InboxEmail {
+    const analysis = MailAnalyzer.analyzeEmail(raw.fromEmail, raw.subject, raw.textBody, raw.fromName);
+    const delegates = this.getDelegates();
+    const matched = delegates.find(
+      (d) => d.email.toLowerCase() === raw.fromEmail.toLowerCase().trim()
+    );
+
+    let category: EmailClassification['category'] = 'General';
+    if (analysis.detectedIntent === 'attending') category = 'RSVP Confirmed';
+    else if (analysis.detectedIntent === 'declined') category = 'RSVP Declined';
+    else if (analysis.detectedIntent === 'tentative') category = 'Tentative';
+    else if (
+      analysis.detectedIntent === 'inquiry' ||
+      analysis.extractedAttributes.hotelRequired !== undefined ||
+      analysis.extractedAttributes.arrivalFlight
+    ) {
+      category = 'Logistics / Inquiry';
+    }
+
+    const classification: EmailClassification = {
+      category,
+      intent: analysis.detectedIntent,
+      confidence: analysis.confidence,
+      summary: analysis.executiveSummary,
+      attributes: {
+        dietary: analysis.extractedAttributes.dietary,
+        arrivalFlight: analysis.extractedAttributes.arrivalFlight,
+        arrivalTime: analysis.extractedAttributes.arrivalTime,
+        hotelRequired: analysis.extractedAttributes.hotelRequired,
+        accompanyingGuests: analysis.extractedAttributes.accompanyingGuests,
+        phone: analysis.extractedAttributes.phone,
+      },
+    };
+
+    const emailItem: InboxEmail = {
+      id: `inbox-msg-${raw.uid || Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      uid: raw.uid || Date.now(),
+      seq: raw.seq,
+      fromEmail: raw.fromEmail,
+      fromName: raw.fromName || raw.fromEmail.split('@')[0],
+      toEmail: raw.toEmail || this.getImapConfig().emailUser,
+      subject: raw.subject || '(No Subject)',
+      date: raw.date || new Date().toISOString(),
+      textBody: raw.textBody,
+      snippet: raw.snippet || raw.textBody.replace(/\s+/g, ' ').slice(0, 160),
+      isRead: raw.isRead || false,
+      classification,
+      matchedDelegateId: matched?.id,
+      matchedDelegateName: matched?.name,
+      syncedToRoster: true,
+    };
+
+    // Auto-update delegate roster as well
+    this.ingestImapReply(raw.fromEmail, raw.subject, raw.textBody, raw.fromName);
+
+    // Save into inbox collection
+    const current = this.getInboxEmails();
+    const existingIdx = current.findIndex(
+      (e) =>
+        e.uid === raw.uid ||
+        (e.fromEmail.toLowerCase() === raw.fromEmail.toLowerCase() && e.subject === raw.subject)
+    );
+    if (existingIdx !== -1) {
+      current[existingIdx] = emailItem;
+    } else {
+      current.unshift(emailItem);
+    }
+    this.saveInboxEmails(current);
+
+    return emailItem;
+  }
+
+  static loadSampleInboxEmails(): InboxEmail[] {
+    const samples = [
+      {
+        uid: 1001,
+        fromEmail: 'ambassador.morel@diplomatie.gouv.fr',
+        fromName: 'Ambassador Jean-Luc Morel',
+        subject: 'Re: Official Invitation: Bhopal Global Investor Summit 2027',
+        textBody:
+          'I am delighted to confirm our attendance. Our delegation will arrive on Flight AI-433 on Jan 14 at 10:15 AM. Kindly ensure 2 hotel rooms are reserved, and arrange strict Jain vegetarian meals for our team.',
+        date: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+      },
+      {
+        uid: 1002,
+        fromEmail: 'campbell.a@parliament.uk',
+        fromName: 'Lord Alistair Campbell',
+        subject: 'Regrets: Bhopal Investor Summit 2027 Delegation',
+        textBody:
+          'Lord Campbell sends his sincere regrets as urgent parliamentary recess commitments in Westminster prevent him from undertaking travel to India during that week.',
+        date: new Date(Date.now() - 1000 * 60 * 95).toISOString(),
+      },
+      {
+        uid: 1003,
+        fromEmail: 'dr.rajesh.tech@tata.com',
+        fromName: 'Dr. Rajesh Sharma',
+        subject: 'Tentative: Investor Summit RSVP & Board Clearance',
+        textBody:
+          'Thank you for the warm invitation. Our executive board is reviewing the travel schedule this Friday. We are tentatively planning to attend, pending final ministerial clearance. Please hold 1 hotel room provisionally.',
+        date: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+      },
+      {
+        uid: 1004,
+        fromEmail: 'santos.m@energy-europe.eu',
+        fromName: 'Maria Santos',
+        subject: 'Confirmed: Renewable Energy Delegation Arrival',
+        textBody:
+          'We confirm our official participation in the Green Energy roundtable. Arriving on Flight LH-760 on Jan 13 at 18:30. Note strict Halal meals for our 3 accompanying delegates. Hotel bookings are self-arranged.',
+        date: new Date(Date.now() - 1000 * 60 * 320).toISOString(),
+      },
+      {
+        uid: 1005,
+        fromEmail: 'tanaka.h@jetro.go.jp',
+        fromName: 'Hiroshi Tanaka',
+        subject: 'Protocol & Bilateral Meeting Inquiries: Japan Tech Mission',
+        textBody:
+          'Greetings from JETRO. We are planning a 5-member technology delegation. Could you kindly clarify protocol guidelines for bilateral meetings with state ministers, and provide airport motorcade details?',
+        date: new Date(Date.now() - 1000 * 60 * 480).toISOString(),
+      },
+    ];
+
+    samples.forEach((s) => this.ingestRawEmailToInbox(s));
+    return this.getInboxEmails();
   }
 }
 

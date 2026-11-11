@@ -45,6 +45,8 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
     switch (activeTab) {
       case 'dashboard':
         return 'Executive Overview & RSVP Telemetry';
+      case 'inbox':
+        return 'Live IMAP Inbox & Attendee Intelligence';
       case 'delegates':
         return 'Master Delegate Roster & RSVP Status';
       case 'documents':

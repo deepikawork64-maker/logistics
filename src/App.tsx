@@ -18,6 +18,7 @@ import { ImapSettingsModal } from './components/ImapSettingsModal';
 import { GoogleFormSettingsModal } from './components/GoogleFormSettingsModal';
 import { IngestEmailModal } from './components/IngestEmailModal';
 import { PowerBiExportModal } from './components/PowerBiExportModal';
+import { InboxView } from './components/InboxView';
 
 import { InviteStorage } from './services/inviteStorage';
 import { OpsStorage } from './services/storage';
@@ -30,16 +31,19 @@ import {
   ImapConfig,
   GoogleFormConfig,
   RsvpStatus,
+  InboxEmail,
 } from './types/inviteOps';
 import { TicketRequest, TicketMessage, StatusHistoryEntry, User } from './types/system';
 import { CheckCircle2, AlertOctagon } from 'lucide-react';
 
 export default function App() {
   const [initialized, setInitialized] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'delegates' | 'documents' | 'tickets' | 'audit'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'inbox' | 'delegates' | 'documents' | 'tickets' | 'audit'>('dashboard');
 
   // Invitation & Delegate State
   const [delegates, setDelegates] = useState<Delegate[]>([]);
+  const [inboxEmails, setInboxEmails] = useState<InboxEmail[]>(InviteStorage.getInboxEmails());
+  const [isFetchingInbox, setIsFetchingInbox] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -77,6 +81,7 @@ export default function App() {
     setActivities(InviteStorage.getActivities());
     setCampaigns(InviteStorage.getCampaigns());
     setImapConfig(InviteStorage.getImapConfig());
+    setInboxEmails(InviteStorage.getInboxEmails());
     setGformConfig(InviteStorage.getGoogleFormConfig());
     setRequests(OpsStorage.getRequests());
   }, []);
@@ -127,7 +132,7 @@ export default function App() {
       isPolling = true;
 
       try {
-        const res = await ImapClient.fetchEmails(imapConfig, { limit: 20 });
+        const res = await ImapClient.fetchEmails(imapConfig, { limit: 35 });
         if (res.ok && res.emails && res.emails.length > 0) {
           const processed = getProcessedIds();
           let newIngested = 0;
@@ -137,12 +142,18 @@ export default function App() {
             if (!processed.has(dedupeKey)) {
               processed.add(dedupeKey);
               if (email.fromEmail && email.textBody) {
-                InviteStorage.ingestImapReply(
-                  email.fromEmail,
-                  email.subject,
-                  email.textBody,
-                  email.fromName
-                );
+                InviteStorage.ingestRawEmailToInbox({
+                  uid: email.uid,
+                  seq: email.seq,
+                  fromEmail: email.fromEmail,
+                  fromName: email.fromName,
+                  toEmail: email.toEmail,
+                  subject: email.subject,
+                  textBody: email.textBody,
+                  date: email.date,
+                  snippet: email.snippet,
+                  isRead: email.isRead,
+                });
                 newIngested++;
               }
             }
@@ -152,7 +163,7 @@ export default function App() {
             saveProcessedIds(processed);
             refreshInviteData();
             showFlash(
-              `Live IMAP: Auto-read ${newIngested} new incoming response(s) from ${imapConfig.emailUser}! Guest RSVPs updated.`,
+              `Live IMAP: Auto-read ${newIngested} new incoming message(s) from ${imapConfig.emailUser}! Inbox and guest RSVPs updated.`,
               'success'
             );
           }
@@ -174,6 +185,47 @@ export default function App() {
       clearInterval(intervalTimer);
     };
   }, [imapConfig, refreshInviteData]);
+
+  const handleFetchInbox = async () => {
+    if (!imapConfig.emailUser || !imapConfig.appPassword) {
+      setIsImapModalOpen(true);
+      showFlash('Please configure your IMAP email and 16-character App Password first.', 'alert');
+      return;
+    }
+
+    setIsFetchingInbox(true);
+    try {
+      const res = await ImapClient.fetchEmails(imapConfig, { limit: 50 });
+      if (res.ok && res.emails && res.emails.length > 0) {
+        let count = 0;
+        for (const item of res.emails) {
+          InviteStorage.ingestRawEmailToInbox({
+            uid: item.uid,
+            seq: item.seq,
+            fromEmail: item.fromEmail,
+            fromName: item.fromName,
+            toEmail: item.toEmail,
+            subject: item.subject,
+            textBody: item.textBody,
+            date: item.date,
+            snippet: item.snippet,
+            isRead: item.isRead,
+          });
+          count++;
+        }
+        refreshInviteData();
+        showFlash(`Successfully fetched and classified ${count} emails from ${imapConfig.emailUser}!`, 'success');
+      } else if (res.ok && res.emails && res.emails.length === 0) {
+        showFlash('Inbox checked: No messages found in INBOX.', 'success');
+      } else {
+        showFlash(res.error || 'Failed to fetch emails from IMAP server.', 'alert');
+      }
+    } catch (err: any) {
+      showFlash(err?.message || 'Error communicating with IMAP server.', 'alert');
+    } finally {
+      setIsFetchingInbox(false);
+    }
+  };
 
   // Document Ingestion
   const handleImportDocument = (
@@ -295,6 +347,7 @@ export default function App() {
         confirmedCount={confirmedCount}
         docsCount={docsCount}
         openTicketsCount={openTicketsCount}
+        inboxCount={inboxEmails.length}
         onOpenUpload={() => setIsUploadModalOpen(true)}
         onOpenCampaign={() => {
           setSelectedCampaignIds([]);
@@ -373,7 +426,44 @@ export default function App() {
               onOpenGoogleForm={() => setIsGoogleFormModalOpen(true)}
               onSelectDelegate={(d) => setSelectedDelegate(d)}
               onNavigateToDelegates={handleNavigateToDelegates}
+              onNavigateToInbox={() => setActiveTab('inbox')}
               onExportExcel={InviteStorage.exportMasterExcel}
+            />
+          )}
+
+          {activeTab === 'inbox' && (
+            <InboxView
+              emails={inboxEmails}
+              delegates={delegates}
+              imapConfig={imapConfig}
+              onOpenImap={() => setIsImapModalOpen(true)}
+              onFetchEmails={handleFetchInbox}
+              isFetching={isFetchingInbox}
+              onSyncEmailToRoster={(email) => {
+                InviteStorage.ingestImapReply(
+                  email.fromEmail,
+                  email.subject,
+                  email.textBody,
+                  email.fromName
+                );
+                refreshInviteData();
+                showFlash(`Synced "${email.fromName}" to master delegate roster!`, 'success');
+              }}
+              onSendReply={handleSendDirectEmail}
+              onMarkAsRead={(id) => {
+                InviteStorage.markInboxEmailAsRead(id);
+                refreshInviteData();
+              }}
+              onDeleteEmail={(id) => {
+                InviteStorage.deleteInboxEmail(id);
+                refreshInviteData();
+                showFlash('Email removed from view.');
+              }}
+              onLoadSampleEmails={() => {
+                InviteStorage.loadSampleInboxEmails();
+                refreshInviteData();
+                showFlash('Loaded 5 sample delegate response emails into inbox!', 'success');
+              }}
             />
           )}
 

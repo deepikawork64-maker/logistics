@@ -152,7 +152,7 @@ async function startServer() {
     }
 
     const cleanPass = sanitizePass(pass);
-    const maxFetch = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+    const maxFetch = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
 
     const client = new ImapFlow({
       host: String(host).trim(),
@@ -186,22 +186,37 @@ async function startServer() {
       }> = [];
 
       try {
-        // Find message sequence or UIDs
-        let uids: number[] | false | undefined;
+        let range: string | number[] = '';
+        let isUid = true;
+
         if (onlyUnread) {
-          uids = await client.search({ seen: false }, { uid: true });
+          const uids = await client.search({ seen: false }, { uid: true });
+          if (Array.isArray(uids) && uids.length > 0) {
+            range = uids.slice(-maxFetch).reverse();
+            isUid = true;
+          }
         } else {
-          uids = await client.search({ all: true }, { uid: true });
+          // Check mailbox message count for super-fast sequence fetching
+          const status = await client.status('INBOX', { messages: true });
+          const total = status ? status.messages || 0 : 0;
+          if (total > 0) {
+            const startSeq = Math.max(1, total - maxFetch + 1);
+            range = `${startSeq}:${total}`;
+            isUid = false;
+          } else {
+            const uids = await client.search({ all: true }, { uid: true });
+            if (Array.isArray(uids) && uids.length > 0) {
+              range = uids.slice(-maxFetch).reverse();
+              isUid = true;
+            }
+          }
         }
 
-        if (Array.isArray(uids) && uids.length > 0) {
-          // Take the most recent messages (highest UIDs)
-          const targetUids = uids.slice(-maxFetch).reverse();
-
+        if (range) {
           for await (const message of client.fetch(
-            targetUids,
+            range,
             { envelope: true, source: true, flags: true },
-            { uid: true }
+            { uid: isUid }
           )) {
             try {
               let parsed: ParsedMail | null = null;

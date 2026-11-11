@@ -153,3 +153,36 @@ export interface ActivityEvent {
   delegateEmail?: string;
 }
 
+export interface EmailClassification {
+  category: 'RSVP Confirmed' | 'RSVP Declined' | 'Tentative' | 'Logistics / Inquiry' | 'General';
+  intent: 'attending' | 'declined' | 'tentative' | 'inquiry' | 'general';
+  confidence: number;
+  summary: string;
+  attributes: {
+    dietary?: string;
+    arrivalFlight?: string;
+    arrivalTime?: string;
+    hotelRequired?: boolean;
+    accompanyingGuests?: number;
+    phone?: string;
+  };
+}
+
+export interface InboxEmail {
+  id: string;
+  uid: number;
+  seq?: number;
+  fromEmail: string;
+  fromName: string;
+  toEmail: string;
+  subject: string;
+  date: string;
+  textBody: string;
+  snippet: string;
+  isRead: boolean;
+  classification: EmailClassification;
+  matchedDelegateId?: string;
+  matchedDelegateName?: string;
+  syncedToRoster?: boolean;
+}
+

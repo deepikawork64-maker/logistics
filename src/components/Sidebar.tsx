@@ -16,13 +16,14 @@ import {
 import { User } from '../types/system';
 
 interface SidebarProps {
-  activeTab: 'dashboard' | 'delegates' | 'documents' | 'tickets' | 'audit';
-  setActiveTab: (tab: 'dashboard' | 'delegates' | 'documents' | 'tickets' | 'audit') => void;
+  activeTab: 'dashboard' | 'inbox' | 'delegates' | 'documents' | 'tickets' | 'audit';
+  setActiveTab: (tab: 'dashboard' | 'inbox' | 'delegates' | 'documents' | 'tickets' | 'audit') => void;
   currentUser: User;
   totalDelegates: number;
   confirmedCount: number;
   docsCount: number;
   openTicketsCount: number;
+  inboxCount?: number;
   onOpenUpload: () => void;
   onOpenCampaign: () => void;
   onOpenImap: () => void;
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   confirmedCount,
   docsCount,
   openTicketsCount,
+  inboxCount = 0,
   onOpenUpload,
   onOpenCampaign,
   onOpenImap,
@@ -52,6 +54,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Executive Dashboard',
       icon: BarChart3,
       badge: `${confirmedCount} Confirmed`,
+      badgeColor: 'bg-[#D8EEDF] text-[#2E7D52]',
+    },
+    {
+      id: 'inbox' as const,
+      label: 'Live IMAP Inbox',
+      icon: Mail,
+      badge: inboxCount > 0 ? `${inboxCount} Mails` : 'Live',
       badgeColor: 'bg-[#D8EEDF] text-[#2E7D52]',
     },
     {
