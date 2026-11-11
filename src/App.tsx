@@ -21,6 +21,7 @@ import { PowerBiExportModal } from './components/PowerBiExportModal';
 
 import { InviteStorage } from './services/inviteStorage';
 import { OpsStorage } from './services/storage';
+import { ImapClient } from './services/imapClient';
 import {
   Delegate,
   UploadedDocument,
@@ -94,6 +95,85 @@ export default function App() {
       if (fresh) setSelectedDelegate(fresh);
     }
   }, [delegates, selectedDelegate?.id]);
+
+  // Automatic Real IMAP Background Polling Loop
+  useEffect(() => {
+    if (!imapConfig.emailUser || !imapConfig.appPassword) {
+      return;
+    }
+
+    const PROCESSED_KEY = `fieldnote_processed_emails_${imapConfig.emailUser.toLowerCase()}`;
+    const getProcessedIds = (): Set<string> => {
+      try {
+        const stored = localStorage.getItem(PROCESSED_KEY);
+        return stored ? new Set(JSON.parse(stored)) : new Set<string>();
+      } catch {
+        return new Set<string>();
+      }
+    };
+
+    const saveProcessedIds = (set: Set<string>) => {
+      try {
+        localStorage.setItem(PROCESSED_KEY, JSON.stringify(Array.from(set).slice(-200)));
+      } catch (e) {
+        console.error('Failed to save processed email IDs', e);
+      }
+    };
+
+    let isPolling = false;
+
+    const pollInboundEmails = async () => {
+      if (isPolling) return;
+      isPolling = true;
+
+      try {
+        const res = await ImapClient.fetchEmails(imapConfig, { limit: 20 });
+        if (res.ok && res.emails && res.emails.length > 0) {
+          const processed = getProcessedIds();
+          let newIngested = 0;
+
+          for (const email of res.emails) {
+            const dedupeKey = `${email.uid}_${email.fromEmail}_${email.date}`;
+            if (!processed.has(dedupeKey)) {
+              processed.add(dedupeKey);
+              if (email.fromEmail && email.textBody) {
+                InviteStorage.ingestImapReply(
+                  email.fromEmail,
+                  email.subject,
+                  email.textBody,
+                  email.fromName
+                );
+                newIngested++;
+              }
+            }
+          }
+
+          if (newIngested > 0) {
+            saveProcessedIds(processed);
+            refreshInviteData();
+            showFlash(
+              `Live IMAP: Auto-read ${newIngested} new incoming response(s) from ${imapConfig.emailUser}! Guest RSVPs updated.`,
+              'success'
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('[IMAP Polling Error]', err);
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    // Initial check after 3 seconds, then poll at user interval
+    const initialTimer = setTimeout(pollInboundEmails, 3000);
+    const intervalMs = Math.max(imapConfig.autoSyncIntervalSec || 30, 10) * 1000;
+    const intervalTimer = setInterval(pollInboundEmails, intervalMs);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+    };
+  }, [imapConfig, refreshInviteData]);
 
   // Document Ingestion
   const handleImportDocument = (
@@ -405,6 +485,10 @@ export default function App() {
         }}
         delegates={delegates}
         onSimulateReply={handleSimulateReply}
+        onRealEmailsFetched={(count) => {
+          refreshInviteData();
+          showFlash(`Fetched and parsed ${count} emails from live IMAP inbox!`);
+        }}
       />
 
       {/* Google Form Settings & Webhook Simulator Modal */}

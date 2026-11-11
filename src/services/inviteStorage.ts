@@ -25,7 +25,7 @@ const DEFAULT_IMAP: ImapConfig = {
   imapPort: 993,
   smtpHost: 'smtp.gmail.com',
   smtpPort: 465,
-  emailUser: 'Deepikawork64@gmail.com',
+  emailUser: 'deepikawork64@gmail.com',
   appPassword: '',
   useSsl: true,
   connected: false,
