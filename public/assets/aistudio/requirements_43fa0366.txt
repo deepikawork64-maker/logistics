@@ -1,0 +1,4 @@
+python-dotenv
+google-genai
+streamlit>=1.40
+pandas

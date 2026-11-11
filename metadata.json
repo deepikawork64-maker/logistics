@@ -1,0 +1,6 @@
+{
+  "name": "Fieldnote Editorial Ops",
+  "description": "Operational review console tailored for high-stakes event coordination and multi-venue summit operations in Bhopal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
