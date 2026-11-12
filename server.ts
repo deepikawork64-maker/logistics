@@ -152,7 +152,7 @@ async function startServer() {
     }
 
     const cleanPass = sanitizePass(pass);
-    const maxFetch = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    const maxFetch = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 30);
 
     const client = new ImapFlow({
       host: String(host).trim(),
@@ -166,7 +166,8 @@ async function startServer() {
       tls: {
         rejectUnauthorized: false,
       },
-      connectionTimeout: 20000,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
     });
 
     try {
@@ -215,7 +216,7 @@ async function startServer() {
         if (range) {
           for await (const message of client.fetch(
             range,
-            { envelope: true, source: true, flags: true },
+            { envelope: true, source: { maxLength: 16384 }, flags: true },
             { uid: isUid }
           )) {
             try {

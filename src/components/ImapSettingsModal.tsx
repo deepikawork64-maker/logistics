@@ -93,13 +93,19 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
     setTestResult(null);
     setFetchError(null);
 
-    const res = await ImapClient.testConnection(formData);
+    const cleanConfig = {
+      ...formData,
+      appPassword: formData.appPassword.replace(/\s+/g, ''),
+    };
+    onSaveConfig(cleanConfig);
+
+    const res = await ImapClient.testConnection(cleanConfig);
     setIsTesting(false);
     setTestResult(res);
 
     if (res.ok) {
-      setFormData((prev) => ({ ...prev, connected: true }));
-      onSaveConfig({ ...formData, connected: true });
+      setFormData((prev) => ({ ...prev, connected: true, appPassword: cleanConfig.appPassword }));
+      onSaveConfig({ ...cleanConfig, connected: true });
     }
   };
 
@@ -109,7 +115,13 @@ export const ImapSettingsModal: React.FC<ImapSettingsModalProps> = ({
     setFetchError(null);
     setFetchSuccessMessage(null);
 
-    const res = await ImapClient.fetchEmails(formData, { limit: 25 });
+    const cleanConfig = {
+      ...formData,
+      appPassword: formData.appPassword.replace(/\s+/g, ''),
+    };
+    onSaveConfig(cleanConfig);
+
+    const res = await ImapClient.fetchEmails(cleanConfig, { limit: 25 });
     setIsFetching(false);
 
     if (res.ok && res.emails) {

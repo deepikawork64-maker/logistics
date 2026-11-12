@@ -210,6 +210,25 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
         </div>
 
+        {/* Password missing reminder banner */}
+        {!imapConfig.appPassword && (
+          <div className="mt-3 p-3 bg-[#F4E7C5]/40 border border-[#976508]/30 rounded text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[#976508]">
+              <HelpCircle className="w-4 h-4 shrink-0" />
+              <span>
+                <strong>IMAP App Password Required:</strong> To fetch real incoming emails from{' '}
+                <strong>{imapConfig.emailUser || 'your mailbox'}</strong>, please enter your 16-character Google App Password in settings.
+              </span>
+            </div>
+            <button
+              onClick={onOpenImap}
+              className="px-3 py-1 text-xs font-semibold bg-[#1E3A2F] text-white rounded hover:bg-[#2E7D52] shrink-0 self-start sm:self-auto cursor-pointer shadow-xs"
+            >
+              Open IMAP Settings
+            </button>
+          </div>
+        )}
+
         {/* Filter & Search Bar */}
         <div className="mt-4 pt-3 border-t border-[#EBE8E1] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Classification Filter Tabs */}

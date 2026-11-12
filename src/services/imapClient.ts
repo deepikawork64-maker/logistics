@@ -37,7 +37,7 @@ export class ImapClient {
    */
   private static async safeFetchJson<T>(url: string, body: any): Promise<T> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
       const res = await fetch(url, {
@@ -50,50 +50,52 @@ export class ImapClient {
         signal: controller.signal,
       });
 
-      const contentType = res.headers.get('content-type') || '';
       const text = (await res.text()).trim();
 
-      // Check if response is valid JSON format
+      // 1. If text starts with '<' or contains HTML doctype, it's HTML, NOT JSON
       if (
-        contentType.includes('application/json') ||
-        (text.startsWith('{') && text.endsWith('}')) ||
-        (text.startsWith('[') && text.endsWith(']'))
+        text.startsWith('<') ||
+        text.includes('<!DOCTYPE') ||
+        text.includes('<!doctype') ||
+        text.includes('<html') ||
+        text.includes('<head')
       ) {
-        try {
-          return JSON.parse(text) as T;
-        } catch {
-          return {
-            ok: false,
-            error: `Malformed JSON received: ${text.slice(0, 140)}`,
-          } as unknown as T;
-        }
-      }
-
-      // If server or proxy returned HTML (e.g., Cloud Run gateway error or 404)
-      if (text.includes('<html') || text.includes('<!doctype') || text.includes('<!DOCTYPE')) {
         if (res.status === 504 || text.includes('Gateway Timeout') || text.includes('timed out')) {
           return {
             ok: false,
             error:
-              'Connection timed out while contacting mail server. Please verify your host and port.',
+              'Connection timed out while contacting mail server. Please verify your host (imap.gmail.com) and port (993).',
           } as unknown as T;
         }
         if (res.status === 502 || text.includes('Bad Gateway')) {
           return {
             ok: false,
             error:
-              'Mail proxy gateway error. Please verify your IMAP host (e.g., imap.gmail.com) and port 993.',
+              'Mail proxy gateway error. Please verify your IMAP host and port 993.',
           } as unknown as T;
         }
         return {
           ok: false,
-          error: `Server returned an HTML status page (${res.status} ${res.statusText}).`,
+          error: `Server returned an HTML error page (${res.status} ${res.statusText || 'Error'}). Please verify your credentials and network connection.`,
         } as unknown as T;
       }
 
+      // 2. Try parsing as JSON if it starts with { or [
+      if (text.startsWith('{') || text.startsWith('[')) {
+        try {
+          return JSON.parse(text) as T;
+        } catch (parseErr: any) {
+          return {
+            ok: false,
+            error: `Malformed JSON received: ${parseErr?.message || text.slice(0, 100)}`,
+          } as unknown as T;
+        }
+      }
+
+      // 3. Fallback for plain text error
       return {
         ok: false,
-        error: text || `Server error (${res.status} ${res.statusText})`,
+        error: text || `Server returned HTTP status ${res.status}`,
       } as unknown as T;
     } catch (err: any) {
       if (err.name === 'AbortError') {
