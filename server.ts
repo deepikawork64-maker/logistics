@@ -71,7 +71,7 @@ async function startServer() {
     const { host, port, user, pass, secure } = req.body;
 
     if (!host || !user || !pass) {
-      return res.status(400).json({
+      return res.json({
         ok: false,
         error: 'Missing required IMAP connection parameters (host, user, pass)',
       });
@@ -94,8 +94,8 @@ async function startServer() {
       tls: {
         rejectUnauthorized: false, // allow flexible SSL setups
       },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
     });
 
     try {
@@ -132,7 +132,7 @@ async function startServer() {
       }
       const diagnosis = diagnoseError(err, String(host), String(user));
       console.error('[IMAP Test Error]', err);
-      return res.status(401).json({
+      return res.json({
         ok: false,
         error: diagnosis,
         rawError: err?.message || String(err),
@@ -145,7 +145,7 @@ async function startServer() {
     const { host, port, user, pass, secure, limit = 25, onlyUnread = false } = req.body;
 
     if (!host || !user || !pass) {
-      return res.status(400).json({
+      return res.json({
         ok: false,
         error: 'Missing required IMAP connection parameters',
       });
@@ -288,7 +288,7 @@ async function startServer() {
       }
       const diagnosis = diagnoseError(err, String(host), String(user));
       console.error('[IMAP Fetch Error]', err);
-      return res.status(500).json({
+      return res.json({
         ok: false,
         error: diagnosis,
         rawError: err?.message || String(err),
@@ -301,7 +301,7 @@ async function startServer() {
     const { host, port, user, pass, secure } = req.body;
 
     if (!host || !user || !pass) {
-      return res.status(400).json({
+      return res.json({
         ok: false,
         error: 'Missing required SMTP parameters',
       });
@@ -329,7 +329,7 @@ async function startServer() {
       });
     } catch (err: any) {
       const diagnosis = diagnoseError(err, String(host), String(user));
-      return res.status(401).json({
+      return res.json({
         ok: false,
         error: diagnosis,
         rawError: err?.message || String(err),
@@ -397,8 +397,14 @@ async function startServer() {
     });
     app.use(vite.middlewares);
 
-    // Fallback for HTML5 client-side navigation
+    // Fallback for HTML5 client-side navigation (Never serve index.html for /api requests)
     app.use('*', async (req, res, next) => {
+      if (req.originalUrl.startsWith('/api')) {
+        return res.json({
+          ok: false,
+          error: `API route not found: ${req.method} ${req.originalUrl}`,
+        });
+      }
       const url = req.originalUrl;
       try {
         let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
@@ -411,10 +417,25 @@ async function startServer() {
     });
   } else {
     app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
+      if (req.originalUrl.startsWith('/api')) {
+        return res.json({
+          ok: false,
+          error: `API route not found: ${req.method} ${req.originalUrl}`,
+        });
+      }
       res.sendFile(path.resolve(__dirname, 'dist/index.html'));
     });
   }
+
+  // Global Error Handler guaranteeing JSON output
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('[Global Express Error Handler]', err);
+    res.json({
+      ok: false,
+      error: err?.message || 'Internal server error occurred',
+    });
+  });
 
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   app.listen(PORT, '0.0.0.0', () => {
